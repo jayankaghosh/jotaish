@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, MessageCircle } from 'lucide-react';
+import { LegalFooter } from '@/components/LegalPage';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/lib/auth';
 import { SERVICES } from '@/lib/services';
@@ -94,9 +95,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-line py-8 text-center text-xs text-faint">
-        Jotaish readings are for guidance and reflection. For medical, legal or financial decisions please consult a professional.
-      </footer>
+      <LegalFooter />
     </div>
   );
 }

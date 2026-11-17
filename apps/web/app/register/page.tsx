@@ -60,7 +60,11 @@ export default function RegisterPage() {
         <button className="btn-primary w-full py-3" disabled={busy}>
           {busy ? <Spinner /> : 'Create account'}
         </button>
-        <p className="text-center text-xs text-faint">Your details and readings are private to you.</p>
+        <p className="text-center text-xs text-faint">
+          By creating an account you agree to our{' '}
+          <Link href="/terms" className="underline hover:text-muted">Terms of service</Link> and{' '}
+          <Link href="/privacy" className="underline hover:text-muted">Privacy policy</Link>. Your details and readings are private to you.
+        </p>
       </form>
     </AuthCard>
   );
