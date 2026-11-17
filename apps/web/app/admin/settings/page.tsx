@@ -24,6 +24,10 @@ interface Settings {
   recommendedModels: Recommended[];
 }
 interface MailSettings {
+  provider: 'smtp' | 'gmail';
+  gmailClientId: string;
+  gmailClientSecretSet: boolean;
+  gmailAddress: string;
   host: string;
   port: number;
   secure: boolean;
@@ -37,7 +41,7 @@ interface MailSettings {
 }
 interface CatalogModel { id: string; name: string; promptPrice: number; completionPrice: number; vision: boolean; tools: boolean }
 
-const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } mail { host port secure username passwordSet fromName fromEmail adminEmails requireVerification configured } tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
+const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } mail { provider gmailClientId gmailClientSecretSet gmailAddress host port secure username passwordSet fromName fromEmail adminEmails requireVerification configured } tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
 
 export default function AdminSettings() {
   const { refresh } = useAuth();
@@ -424,6 +428,7 @@ function PaymentSettings({ settings, onSaved }: { settings: Settings; onSaved: (
 
 function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s: Settings) => void }) {
   const m = settings.mail;
+  const [provider, setProvider] = useState<'smtp' | 'gmail'>(m.provider);
   const [form, setForm] = useState({
     host: m.host,
     port: String(m.port),
@@ -433,23 +438,25 @@ function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s:
     fromEmail: m.fromEmail,
     adminEmails: m.adminEmails,
     requireVerification: m.requireVerification,
+    gmailClientId: m.gmailClientId,
   });
   const [password, setPassword] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
   const [busy, setBusy] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [testTo, setTestTo] = useState(m.adminEmails.split(/[,;\s]+/)[0] || m.username);
+  const [testTo, setTestTo] = useState(m.adminEmails.split(/[,;\s]+/)[0] || m.gmailAddress || m.username);
   const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
+  const [redirectUri, setRedirectUri] = useState('');
+
+  useEffect(() => setRedirectUri(`${window.location.origin}/admin/settings/gmail`), []);
 
   const set = (patch: Partial<typeof form>) => {
     setForm({ ...form, ...patch });
     setSaved(false);
   };
-
-  function useGmail() {
-    set({ host: 'smtp.gmail.com', port: '465', secure: true, fromEmail: form.fromEmail || form.username });
-  }
 
   async function save() {
     setBusy(true);
@@ -457,16 +464,36 @@ function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s:
     setError(null);
     try {
       const { updateSettings } = await gql<{ updateSettings: Settings }>(`mutation($input: SettingsInput!) { updateSettings(input: $input) { ${SETTINGS_FIELDS} } }`, {
-        input: { mail: { ...form, port: Number(form.port), password: password || null } },
+        input: { mail: { ...form, provider, port: Number(form.port), password: password || null, gmailClientSecret: clientSecret || null } },
       });
       onSaved(updateSettings);
       setPassword('');
+      setClientSecret('');
       setSaved(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function connect() {
+    setConnecting(true);
+    setError(null);
+    try {
+      const { gmailConnectUrl } = await gql<{ gmailConnectUrl: string }>(`mutation($r: String!) { gmailConnectUrl(redirectUri: $r) }`, { r: redirectUri });
+      window.location.href = gmailConnectUrl;
+    } catch (e) {
+      setError((e as Error).message);
+      setConnecting(false);
+    }
+  }
+
+  async function disconnect() {
+    if (!confirm('Disconnect Gmail? Emails stop until you connect again.')) return;
+    await gql(`mutation { disconnectGmail { provider } }`);
+    const { adminSettings } = await gql<{ adminSettings: Settings }>(`{ adminSettings { ${SETTINGS_FIELDS} } }`);
+    onSaved(adminSettings);
   }
 
   async function sendTest() {
@@ -482,62 +509,112 @@ function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s:
     }
   }
 
+  const gmailReady = m.gmailClientId && m.gmailClientSecretSet;
+  const unsavedGmail = form.gmailClientId !== m.gmailClientId || clientSecret !== '' || provider !== m.provider;
+
   return (
     <section className="card p-6">
       <div className="mb-1 flex flex-wrap items-center gap-3">
         <Mail className="text-gold" />
-        <h2 className="font-display text-2xl text-ink">Email (SMTP)</h2>
+        <h2 className="font-display text-2xl text-ink">Email</h2>
         {m.configured ? <span className="chip border-ok/40 text-ok">Set up</span> : <span className="chip border-danger/40 text-danger">Not set up</span>}
       </div>
-      <p className="mb-4 text-sm text-muted">
+      <p className="mb-5 text-sm text-muted">
         Used to send readings as PDFs, payment updates, email confirmation codes, admin alerts and your own messages from the Emails page.
       </p>
-      <div className="mb-5">
-        <Tip>
-          <strong>Using Gmail:</strong> click &quot;Use Gmail&quot;, enter your Gmail address as the username, and use an <strong>App Password</strong> instead of your normal
-          password. Create one at{' '}
-          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-gold underline">myaccount.google.com/apppasswords</a>{' '}
-          (2-Step Verification must be on). Gmail sends up to about 500 emails a day.
-        </Tip>
-      </div>
-      <button type="button" className="btn-ghost mb-5" onClick={useGmail}>Use Gmail</button>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="label" htmlFor="smtp-host">SMTP server</label>
-          <input id="smtp-host" className="input" placeholder="smtp.gmail.com" value={form.host} onChange={(e) => set({ host: e.target.value })} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label" htmlFor="smtp-port">Port</label>
-            <input id="smtp-port" className="input" inputMode="numeric" value={form.port} onChange={(e) => set({ port: e.target.value.replace(/\D/g, ''), secure: e.target.value === '465' ? true : e.target.value === '587' ? false : form.secure })} />
+      <span className="label">Send email using</span>
+      <div className="mb-6 grid gap-2 sm:grid-cols-2">
+        <button type="button" onClick={() => { setProvider('gmail'); setSaved(false); }} className={`rounded-xl border p-4 text-left ${provider === 'gmail' ? 'border-gold bg-gold/10' : 'border-line hover:border-gold/40'}`}>
+          <span className="block text-ink">Gmail (API)</span>
+          <span className="text-xs text-muted">Sign in with Google. Works even where the host blocks email ports, such as DigitalOcean.</span>
+        </button>
+        <button type="button" onClick={() => { setProvider('smtp'); setSaved(false); }} className={`rounded-xl border p-4 text-left ${provider === 'smtp' ? 'border-gold bg-gold/10' : 'border-line hover:border-gold/40'}`}>
+          <span className="block text-ink">SMTP server</span>
+          <span className="text-xs text-muted">Gmail with an App Password, Brevo, Zoho or any other mail service.</span>
+        </button>
+      </div>
+
+      {provider === 'gmail' ? (
+        <div className="space-y-4">
+          <Tip>
+            You need a Google Cloud OAuth client (free). Add this exact address as an <strong>Authorized redirect URI</strong> on it:
+            <code className="mt-2 block break-all rounded-lg bg-night/60 px-3 py-2 text-gold-soft">{redirectUri}</code>
+          </Tip>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="g-id">Client ID</label>
+              <input id="g-id" className="input font-mono text-xs" placeholder="1234-abc.apps.googleusercontent.com" value={form.gmailClientId} onChange={(e) => set({ gmailClientId: e.target.value })} autoComplete="off" />
+            </div>
+            <div>
+              <label className="label" htmlFor="g-secret">Client secret {m.gmailClientSecretSet && <span className="font-normal text-faint">(saved; leave empty to keep it)</span>}</label>
+              <input id="g-secret" className="input font-mono text-xs" type="password" placeholder={m.gmailClientSecretSet ? '••••••••••••' : 'GOCSPX-…'} value={clientSecret} onChange={(e) => { setClientSecret(e.target.value); setSaved(false); }} autoComplete="new-password" />
+            </div>
           </div>
-          <div>
-            <label className="label" htmlFor="smtp-sec">Security</label>
-            <select id="smtp-sec" className="input" value={form.secure ? 'ssl' : 'starttls'} onChange={(e) => set({ secure: e.target.value === 'ssl' })}>
-              <option value="ssl">SSL (port 465)</option>
-              <option value="starttls">STARTTLS (port 587)</option>
-            </select>
+          <div className="rounded-xl border border-line p-4">
+            {m.gmailAddress ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-ink"><CheckCircle2 size={16} className="mr-1.5 inline text-ok" />Connected. Emails are sent from <strong>{m.gmailAddress}</strong>.</p>
+                <div className="flex gap-2">
+                  <button type="button" className="btn-ghost !py-1.5" onClick={connect} disabled={connecting || unsavedGmail}>Reconnect</button>
+                  <button type="button" className="btn-danger !py-1.5" onClick={disconnect}>Disconnect</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted">
+                  {gmailReady && !unsavedGmail ? 'Now connect the Gmail account Jotaish should send from.' : 'Save the Client ID and Client secret, then connect your Gmail account.'}
+                </p>
+                <button type="button" className="btn-primary" onClick={connect} disabled={connecting || !gmailReady || unsavedGmail}>
+                  {connecting ? <Spinner /> : <Mail size={16} />} Connect Gmail
+                </button>
+              </div>
+            )}
           </div>
         </div>
-        <div>
-          <label className="label" htmlFor="smtp-user">Username</label>
-          <input id="smtp-user" className="input" placeholder="you@gmail.com" value={form.username} onChange={(e) => set({ username: e.target.value })} autoComplete="off" />
-        </div>
-        <div>
-          <label className="label" htmlFor="smtp-pass">Password {m.passwordSet && <span className="font-normal text-faint">(saved; leave empty to keep it)</span>}</label>
-          <input id="smtp-pass" className="input" type="password" placeholder={m.passwordSet ? '••••••••••••••••' : 'App password'} value={password} onChange={(e) => { setPassword(e.target.value); setSaved(false); }} autoComplete="new-password" />
-        </div>
+      ) : (
+        <>
+          <button type="button" className="btn-ghost mb-4" onClick={() => set({ host: 'smtp.gmail.com', port: '465', secure: true, fromEmail: form.fromEmail || form.username })}>Fill in Gmail SMTP</button>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="smtp-host">SMTP server</label>
+              <input id="smtp-host" className="input" placeholder="smtp.gmail.com" value={form.host} onChange={(e) => set({ host: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label" htmlFor="smtp-port">Port</label>
+                <input id="smtp-port" className="input" inputMode="numeric" value={form.port} onChange={(e) => set({ port: e.target.value.replace(/\D/g, ''), secure: e.target.value === '465' ? true : e.target.value === '587' ? false : form.secure })} />
+              </div>
+              <div>
+                <label className="label" htmlFor="smtp-sec">Security</label>
+                <select id="smtp-sec" className="input" value={form.secure ? 'ssl' : 'starttls'} onChange={(e) => set({ secure: e.target.value === 'ssl' })}>
+                  <option value="ssl">SSL (port 465)</option>
+                  <option value="starttls">STARTTLS (587 or 2525)</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="label" htmlFor="smtp-user">Username</label>
+              <input id="smtp-user" className="input" value={form.username} onChange={(e) => set({ username: e.target.value })} autoComplete="off" />
+            </div>
+            <div>
+              <label className="label" htmlFor="smtp-pass">Password {m.passwordSet && <span className="font-normal text-faint">(saved; leave empty to keep it)</span>}</label>
+              <input id="smtp-pass" className="input" type="password" placeholder={m.passwordSet ? '••••••••••••••••' : 'App password or SMTP key'} value={password} onChange={(e) => { setPassword(e.target.value); setSaved(false); }} autoComplete="new-password" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="label" htmlFor="smtp-from">Sender address</label>
+              <input id="smtp-from" className="input" placeholder="Usually the same as the username" value={form.fromEmail} onChange={(e) => set({ fromEmail: e.target.value })} />
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="mt-6 grid gap-4 border-t border-line pt-5 md:grid-cols-2">
         <div>
           <label className="label" htmlFor="smtp-from-name">Sender name</label>
           <input id="smtp-from-name" className="input" value={form.fromName} onChange={(e) => set({ fromName: e.target.value })} />
         </div>
         <div>
-          <label className="label" htmlFor="smtp-from">Sender address</label>
-          <input id="smtp-from" className="input" placeholder="Usually the same as the username" value={form.fromEmail} onChange={(e) => set({ fromEmail: e.target.value })} />
-          <p className="hint">Gmail only sends from your own address (or an alias you have added in Gmail).</p>
-        </div>
-        <div className="md:col-span-2">
           <label className="label" htmlFor="smtp-admins">Send admin alerts to</label>
           <input id="smtp-admins" className="input" placeholder="you@gmail.com, partner@example.com" value={form.adminEmails} onChange={(e) => set({ adminEmails: e.target.value })} />
           <p className="hint">New payments to check and customers running out of credits. Separate several addresses with commas.</p>
@@ -564,7 +641,7 @@ function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s:
           <input id="smtp-test" className="input sm:max-w-sm" value={testTo} onChange={(e) => setTestTo(e.target.value)} />
           <button className="btn-ghost" onClick={sendTest} disabled={testing || !m.configured || !testTo}>{testing ? <Spinner /> : 'Send test email'}</button>
         </div>
-        {!m.configured && <p className="hint">Save the settings first.</p>}
+        {!m.configured && <p className="hint">{provider === 'gmail' ? 'Connect Gmail first.' : 'Save the settings first.'}</p>}
         {test && (
           <p className={`mt-2 flex items-center gap-1.5 text-sm ${test.ok ? 'text-ok' : 'text-danger'}`}>
             {test.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />} {test.message}

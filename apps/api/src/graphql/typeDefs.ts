@@ -182,6 +182,12 @@ export const typeDefs = /* GraphQL */ `
   }
 
   type MailSettings {
+    # smtp or gmail
+    provider: String!
+    gmailClientId: String!
+    gmailClientSecretSet: Boolean!
+    # The connected Google account, empty until "Connect Gmail" is done.
+    gmailAddress: String!
     host: String!
     port: Int!
     secure: Boolean!
@@ -356,6 +362,9 @@ export const typeDefs = /* GraphQL */ `
   }
 
   input MailSettingsInput {
+    provider: String
+    gmailClientId: String
+    gmailClientSecret: String
     host: String
     port: Int
     secure: Boolean
@@ -441,6 +450,11 @@ export const typeDefs = /* GraphQL */ `
     # Positive adds credits, negative removes them.
     grantCredits(userId: ID!, credits: Int!, note: String): User!
     sendTestEmail(to: String!): Boolean!
+    # Returns the Google page where the admin approves sending email.
+    gmailConnectUrl(redirectUri: String!): String!
+    # Finishes the Google approval with the code Google sent back.
+    connectGmail(code: String!, state: String!, redirectUri: String!): MailSettings!
+    disconnectGmail: MailSettings!
     # Emails the chosen users (or everyone who isn't blocked). Sending happens
     # in the background; returns how many emails were queued.
     sendEmailToUsers(userIds: [ID!], everyone: Boolean, subject: String!, body: String!): Int!

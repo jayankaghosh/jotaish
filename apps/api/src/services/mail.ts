@@ -5,8 +5,12 @@ import { prisma } from '../lib/db';
 import { decrypt, encrypt } from '../lib/crypto';
 import { env } from '../lib/env';
 import { userError } from '../lib/auth';
+import { sendWithGmail } from './gmail';
 
 export interface MailSettings {
+  // smtp, or gmail to send through the Gmail API over HTTPS (useful where
+  // the host blocks SMTP ports).
+  provider: 'smtp' | 'gmail';
   host: string;
   port: number;
   // true for SSL on connect (port 465), false for STARTTLS (port 587)
@@ -19,10 +23,18 @@ export interface MailSettings {
   adminEmails: string;
   // Customers must confirm their email before signing in.
   requireVerification: boolean;
+  gmailClientId: string;
+  gmailClientSecret: string;
+  gmailRefreshToken: string;
+  // The Google account that approved sending; emails come from it.
+  gmailAddress: string;
 }
+
+const SECRETS = ['password', 'gmailClientSecret', 'gmailRefreshToken'] as const;
 
 const SETTING = 'smtp';
 const DEFAULTS: MailSettings = {
+  provider: 'smtp',
   host: '',
   port: 465,
   secure: true,
@@ -32,20 +44,40 @@ const DEFAULTS: MailSettings = {
   fromEmail: '',
   adminEmails: '',
   requireVerification: true,
+  gmailClientId: '',
+  gmailClientSecret: '',
+  gmailRefreshToken: '',
+  gmailAddress: '',
 };
 
 export async function getMailSettings(): Promise<MailSettings> {
   const row = await prisma.setting.findUnique({ where: { key: SETTING } });
   if (!row) return DEFAULTS;
   const saved = JSON.parse(row.value);
-  return { ...DEFAULTS, ...saved, password: saved.password ? decrypt(saved.password) : '' };
+  const out = { ...DEFAULTS, ...saved };
+  for (const key of SECRETS) out[key] = saved[key] ? decrypt(saved[key]) : '';
+  return out;
+}
+
+async function store(next: MailSettings) {
+  const stored: Record<string, unknown> = { ...next };
+  for (const key of SECRETS) stored[key] = next[key] ? encrypt(next[key]) : '';
+  const value = JSON.stringify(stored);
+  await prisma.setting.upsert({ where: { key: SETTING }, create: { key: SETTING, value }, update: { value } });
 }
 
 export async function setMailSettings(input: Partial<MailSettings> & { clearPassword?: boolean | null }) {
   const current = await getMailSettings();
   const next: MailSettings = { ...current };
-  for (const key of ['host', 'username', 'fromName', 'fromEmail', 'adminEmails'] as const) {
+  for (const key of ['host', 'username', 'fromName', 'fromEmail', 'adminEmails', 'gmailClientId'] as const) {
     if (typeof input[key] === 'string') next[key] = input[key]!.trim();
+  }
+  if (input.provider === 'smtp' || input.provider === 'gmail') next.provider = input.provider;
+  if (input.gmailClientSecret?.trim()) next.gmailClientSecret = input.gmailClientSecret.trim();
+  // A different OAuth client can't use the old connection.
+  if (next.gmailClientId !== current.gmailClientId) {
+    next.gmailRefreshToken = '';
+    next.gmailAddress = '';
   }
   if (typeof input.port === 'number') next.port = input.port;
   if (typeof input.secure === 'boolean') next.secure = input.secure;
@@ -59,9 +91,18 @@ export async function setMailSettings(input: Partial<MailSettings> & { clearPass
   const admins = splitEmails(next.adminEmails);
   if (admins.some((a) => !email.test(a))) throw userError('One of the admin notification addresses does not look like an email address.');
 
-  const value = JSON.stringify({ ...next, password: next.password ? encrypt(next.password) : '' });
-  await prisma.setting.upsert({ where: { key: SETTING }, create: { key: SETTING, value }, update: { value } });
+  await store(next);
   return next;
+}
+
+export async function saveGmailConnection(refreshToken: string, address: string) {
+  const s = await getMailSettings();
+  await store({ ...s, provider: 'gmail', gmailRefreshToken: refreshToken, gmailAddress: address });
+}
+
+export async function disconnectGmail() {
+  const s = await getMailSettings();
+  await store({ ...s, gmailRefreshToken: '', gmailAddress: '' });
 }
 
 export function splitEmails(list: string) {
@@ -69,6 +110,7 @@ export function splitEmails(list: string) {
 }
 
 export function isConfigured(s: MailSettings) {
+  if (s.provider === 'gmail') return Boolean(s.gmailClientId && s.gmailClientSecret && s.gmailRefreshToken && s.gmailAddress);
   return Boolean(s.host && s.port && s.username && s.password && (s.fromEmail || s.username));
 }
 
@@ -104,14 +146,17 @@ export async function sendMail(mail: OutgoingMail, settings?: MailSettings): Pro
   const s = settings ?? (await getMailSettings());
   if (!isConfigured(s)) return false;
   try {
-    await transport(s).sendMail({
-      from: { name: s.fromName || 'Jotaish', address: s.fromEmail || s.username },
+    const message = {
+      // Gmail only sends as the connected account.
+      from: { name: s.fromName || 'Jotaish', address: s.provider === 'gmail' ? s.gmailAddress : s.fromEmail || s.username },
       to: mail.to,
       subject: mail.subject,
       html: mail.html,
       text: htmlToText(mail.html),
       attachments: mail.attachments,
-    });
+    };
+    if (s.provider === 'gmail') await sendWithGmail(s, message);
+    else await transport(s).sendMail(message);
     await prisma.emailLog.create({ data: { to: mail.to, subject: mail.subject, kind: mail.kind, status: 'sent', userId: mail.userId ?? null } });
     return true;
   } catch (e) {
@@ -128,12 +173,15 @@ export async function sendMail(mail: OutgoingMail, settings?: MailSettings): Pro
 export async function sendTestMail(to: string) {
   const s = await getMailSettings();
   if (!isConfigured(s)) throw userError('Please fill in and save the email settings first.');
-  await transport(s).verify();
+  if (s.provider === 'smtp') await transport(s).verify();
   const ok = await sendMail(
     { to, subject: 'Jotaish email is working', kind: 'test', html: layout('Email is set up', '<p>This is a test from the Jotaish console. Emails to customers and admins will now be sent from this account.</p>') },
     s,
   );
-  if (!ok) throw userError('The email server accepted the login but the message could not be sent. Check the email log for details.');
+  if (!ok) {
+    const last = await prisma.emailLog.findFirst({ where: { to, kind: 'test' }, orderBy: { createdAt: 'desc' } });
+    throw userError(`The test email could not be sent: ${last?.error ?? 'unknown error'}`);
+  }
 }
 
 export async function notifyAdmins(subject: string, html: string, attachments?: Attachment[]) {

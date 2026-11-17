@@ -9,7 +9,8 @@ import { saveProfile, type ProfileInput } from '../services/profiles';
 import * as readings from '../services/readings';
 import { CREDIT_USD, assertCanInteract, getLimitSettings, setLimitSettings, usageFor } from '../services/limits';
 import { getPaymentSettings, grantCredits, quote, reviewPayment, setPaymentSettings, submitPayment } from '../services/payments';
-import { getMailSettings, isConfigured, sendTestMail, setMailSettings } from '../services/mail';
+import { disconnectGmail, getMailSettings, isConfigured, saveGmailConnection, sendTestMail, setMailSettings, type MailSettings } from '../services/mail';
+import { authUrl, checkState, exchangeCode, makeState } from '../services/gmail';
 import { campaignEmail } from '../services/notifications';
 import { confirmCode, forgetVerificationSetting, needsVerification, notVerifiedError, sendCode } from '../services/verification';
 import { greeting, sendMessage, streamMessage, type ChatEvent } from '../ai/agent';
@@ -48,6 +49,18 @@ const JSONScalar = new GraphQLScalarType({
   parseLiteral,
 });
 
+function mailView(mail: MailSettings) {
+  return {
+    ...mail,
+    password: undefined,
+    gmailClientSecret: undefined,
+    gmailRefreshToken: undefined,
+    passwordSet: Boolean(mail.password),
+    gmailClientSecretSet: Boolean(mail.gmailClientSecret),
+    configured: isConfigured(mail),
+  };
+}
+
 async function adminSettings() {
   const [models, stored, temperature, limits, payment, mail] = await Promise.all([
     getModels(),
@@ -67,7 +80,7 @@ async function adminSettings() {
     creditPeriod: limits.period,
     creditUsd: CREDIT_USD,
     payment,
-    mail: { ...mail, password: undefined, passwordSet: Boolean(mail.password), configured: isConfigured(mail) },
+    mail: mailView(mail),
     tasks: (Object.keys(AI_TASKS) as AiTask[]).map((task) => ({ task, ...AI_TASKS[task], needs: [...AI_TASKS[task].needs], model: models[task] })),
     recommendedModels: RECOMMENDED_MODELS,
   };
@@ -434,12 +447,40 @@ export const resolvers = {
       } catch (e) {
         // Turn SMTP errors into something an admin can act on.
         const message = (e as Error).message;
+        if (/Connection timeout|ETIMEDOUT|ECONNREFUSED/i.test(message)) {
+          throw userError('Could not reach the email server. Your hosting provider may block email ports; switch to "Gmail (API)" above, which works over HTTPS.');
+        }
         if (/Invalid login|Username and Password not accepted|535/i.test(message)) {
           throw userError('The email server rejected the username or password. For Gmail, use an App Password, not your normal password.');
         }
         throw userError(`Could not send the test email: ${message}`);
       }
       return true;
+    },
+    gmailConnectUrl: async (_: unknown, { redirectUri }: { redirectUri: string }, ctx: Context) => {
+      const admin = requireAdmin(ctx);
+      const s = await getMailSettings();
+      if (!s.gmailClientId || !s.gmailClientSecret) throw userError('Please save the Client ID and Client secret first.');
+      return authUrl(s.gmailClientId, redirectUri, makeState(admin.id));
+    },
+    connectGmail: async (_: unknown, args: { code: string; state: string; redirectUri: string }, ctx: Context) => {
+      const admin = requireAdmin(ctx);
+      if (!checkState(args.state, admin.id)) throw userError('This Google approval has expired or did not start here. Please click "Connect Gmail" again.');
+      const s = await getMailSettings();
+      try {
+        const { refreshToken, address } = await exchangeCode(s, args.code, args.redirectUri);
+        await saveGmailConnection(refreshToken, address);
+      } catch (e) {
+        throw userError(`Could not connect Gmail: ${(e as Error).message}`);
+      }
+      forgetVerificationSetting();
+      return mailView(await getMailSettings());
+    },
+    disconnectGmail: async (_: unknown, __: unknown, ctx: Context) => {
+      requireAdmin(ctx);
+      await disconnectGmail();
+      forgetVerificationSetting();
+      return mailView(await getMailSettings());
     },
     sendEmailToUsers: async (_: unknown, args: { userIds?: string[]; everyone?: boolean; subject: string; body: string }, ctx: Context) => {
       requireAdmin(ctx);
