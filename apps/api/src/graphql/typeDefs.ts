@@ -42,6 +42,8 @@ export const typeDefs = /* GraphQL */ `
     remaining: Int
     percentLeft: Int
     spentUsd: Float!
+    # Bought or granted credits left, used after the free allowance.
+    balance: Int!
     # day, month or total
     period: String!
     resetsAt: String
@@ -117,6 +119,63 @@ export const typeDefs = /* GraphQL */ `
     message: Message
   }
 
+  type CreditPack {
+    rupees: Int!
+    credits: Int!
+  }
+
+  type BuyCreditsInfo {
+    available: Boolean!
+    upiId: String
+    payeeName: String!
+    qrCode: String
+    packs: [CreditPack!]!
+  }
+
+  type CreditQuote {
+    ok: Boolean!
+    rupees: Int
+    credits: Int
+    message: String
+    suggestions: [CreditPack!]!
+  }
+
+  type PaymentRequest {
+    id: ID!
+    credits: Int!
+    rupees: Int!
+    screenshot: String!
+    # pending, approved or rejected
+    status: String!
+    # Credits actually added when approved.
+    creditsAdded: Int
+    # Admin's note; the reason when rejected.
+    note: String
+    createdAt: String!
+    reviewedAt: String
+    user: User
+  }
+
+  type PaymentPage {
+    total: Int!
+    items: [PaymentRequest!]!
+  }
+
+  type CreditGrant {
+    id: ID!
+    credits: Float!
+    note: String
+    grantedBy: String
+    createdAt: String!
+  }
+
+  type PaymentSettings {
+    upiId: String!
+    payeeName: String!
+    qrCode: String
+    packs: [CreditPack!]!
+  }
+
   type AiTaskSetting {
     task: String!
     label: String!
@@ -142,6 +201,7 @@ export const typeDefs = /* GraphQL */ `
     creditLimit: Int
     creditPeriod: String!
     creditUsd: Float!
+    payment: PaymentSettings!
     tasks: [AiTaskSetting!]!
     recommendedModels: [RecommendedModel!]!
   }
@@ -253,12 +313,26 @@ export const typeDefs = /* GraphQL */ `
     period: String!
   }
 
+  input CreditPackInput {
+    rupees: Int!
+    credits: Int!
+  }
+
+  input PaymentSettingsInput {
+    upiId: String
+    payeeName: String
+    qrCode: String
+    clearQrCode: Boolean
+    packs: [CreditPackInput!]
+  }
+
   input SettingsInput {
     apiKey: String
     clearApiKey: Boolean
     temperature: Float
     models: [ModelSettingInput!]
     limits: LimitSettingsInput
+    payment: PaymentSettingsInput
   }
 
   type Query {
@@ -270,6 +344,10 @@ export const typeDefs = /* GraphQL */ `
     conversation(id: ID!): Conversation
     searchPlaces(query: String!): [Place!]!
     aiReady: Boolean!
+    buyCreditsInfo: BuyCreditsInfo!
+    # Price for a number of credits or rupees; give one of the two.
+    creditQuote(credits: Int, rupees: Int): CreditQuote!
+    myPayments: [PaymentRequest!]!
 
     adminStats: AdminStats!
     adminUsers(search: String, skip: Int, take: Int): UserPage!
@@ -279,6 +357,11 @@ export const typeDefs = /* GraphQL */ `
     adminConversation(id: ID!): Conversation
     adminReading(id: ID!): Reading
     adminSettings: AdminSettings!
+    # status: pending, approved, rejected or all
+    adminPayments(status: String, skip: Int, take: Int): PaymentPage!
+    adminPendingPayments: Int!
+    adminUserPayments(userId: ID!): [PaymentRequest!]!
+    adminUserGrants(userId: ID!): [CreditGrant!]!
     openRouterModels: [CatalogModel!]!
   }
 
@@ -295,6 +378,7 @@ export const typeDefs = /* GraphQL */ `
     sendMessage(conversationId: ID!, content: String!, imageDataUrl: String): [Message!]!
     renameConversation(id: ID!, title: String!): Conversation!
     deleteConversation(id: ID!): Boolean!
+    submitPayment(credits: Int!, rupees: Int!, screenshot: String!): PaymentRequest!
 
     updateSettings(input: SettingsInput!): AdminSettings!
     testOpenRouter(model: String): TestResult!
@@ -303,6 +387,11 @@ export const typeDefs = /* GraphQL */ `
     setUserDisabled(userId: ID!, disabled: Boolean!): User!
     # mode: default, custom (uses limit) or unlimited
     setUserLimit(userId: ID!, mode: String!, limit: Int): User!
+    # Approving adds the credits (the requested number unless given).
+    # Rejecting requires a note, which the customer sees as the reason.
+    reviewPayment(id: ID!, approve: Boolean!, credits: Int, note: String): PaymentRequest!
+    # Positive adds credits, negative removes them.
+    grantCredits(userId: ID!, credits: Int!, note: String): User!
   }
 
   type Subscription {

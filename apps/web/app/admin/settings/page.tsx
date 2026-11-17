@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Eye, Gauge, KeyRound, XCircle } from 'lucide-react';
+import { CheckCircle2, Eye, Gauge, IndianRupee, KeyRound, Plus, Trash2, XCircle } from 'lucide-react';
+import { imageToDataUrl } from '@/lib/image';
 import { AdminShell } from '@/components/AdminShell';
 import { ErrorNote, PageTitle, Spinner, Tip } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -17,12 +18,13 @@ interface Settings {
   creditLimit: number | null;
   creditPeriod: 'day' | 'month' | 'total';
   creditUsd: number;
+  payment: { upiId: string; payeeName: string; qrCode: string | null; packs: { rupees: number; credits: number }[] };
   tasks: TaskSetting[];
   recommendedModels: Recommended[];
 }
 interface CatalogModel { id: string; name: string; promptPrice: number; completionPrice: number; vision: boolean; tools: boolean }
 
-const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
+const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
 
 export default function AdminSettings() {
   const { refresh } = useAuth();
@@ -122,6 +124,8 @@ export default function AdminSettings() {
         </section>
 
         <LimitSettings settings={settings} onSaved={apply} />
+
+        <PaymentSettings settings={settings} onSaved={apply} />
 
         <section className="card p-6">
           <h2 className="font-display text-2xl text-ink">Model for each task</h2>
@@ -263,6 +267,139 @@ function LimitSettings({ settings, onSaved }: { settings: Settings; onSaved: (s:
       </p>
       <div className="mt-4 flex items-center gap-3">
         <button className="btn-primary" onClick={save} disabled={busy || !valid}>{busy ? <Spinner /> : 'Save allowance'}</button>
+        {saved && <span className="text-sm text-ok">Saved.</span>}
+      </div>
+      <div className="mt-3"><ErrorNote message={error} /></div>
+    </section>
+  );
+}
+
+function PaymentSettings({ settings, onSaved }: { settings: Settings; onSaved: (s: Settings) => void }) {
+  const [upiId, setUpiId] = useState(settings.payment.upiId);
+  const [payeeName, setPayeeName] = useState(settings.payment.payeeName);
+  const [qr, setQr] = useState<string | null>(settings.payment.qrCode);
+  const [packs, setPacks] = useState(settings.payment.packs.map((p) => ({ rupees: String(p.rupees), credits: String(p.credits) })));
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dirty = () => setSaved(false);
+  const validPacks = packs.every((p) => /^\d+$/.test(p.rupees) && /^\d+$/.test(p.credits) && Number(p.rupees) > 0 && Number(p.credits) > 0);
+
+  async function save() {
+    setBusy(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const { updateSettings } = await gql<{ updateSettings: Settings }>(`mutation($input: SettingsInput!) { updateSettings(input: $input) { ${SETTINGS_FIELDS} } }`, {
+        input: {
+          payment: {
+            upiId,
+            payeeName,
+            qrCode: qr && qr !== settings.payment.qrCode ? qr : null,
+            clearQrCode: !qr && Boolean(settings.payment.qrCode),
+            packs: packs.map((p) => ({ rupees: Number(p.rupees), credits: Number(p.credits) })),
+          },
+        },
+      });
+      onSaved(updateSettings);
+      setSaved(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card p-6">
+      <div className="mb-1 flex items-center gap-3">
+        <IndianRupee className="text-gold" />
+        <h2 className="font-display text-2xl text-ink">Selling credits by UPI</h2>
+      </div>
+      <p className="mb-5 text-sm text-muted">
+        Customers see these on their Credits page. They pay to your UPI ID, upload a screenshot, and you approve it in Payments to add the credits.
+        Bought credits are used after a user&apos;s free allowance and never expire.
+      </p>
+
+      <div className="grid gap-6 md:grid-cols-[1fr_auto]">
+        <div className="space-y-4">
+          <div>
+            <label className="label" htmlFor="upi">UPI ID</label>
+            <input id="upi" className="input" placeholder="yourname@okaxis" value={upiId} onChange={(e) => { setUpiId(e.target.value); dirty(); }} />
+          </div>
+          <div>
+            <label className="label" htmlFor="payee">Name shown to payers</label>
+            <input id="payee" className="input" value={payeeName} onChange={(e) => { setPayeeName(e.target.value); dirty(); }} />
+          </div>
+        </div>
+        <div>
+          <span className="label">QR code</span>
+          <label className="flex h-44 w-44 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border-2 border-dashed border-line text-center text-xs text-muted hover:border-gold/50">
+            {qr ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={qr} alt="UPI QR code" className="h-full w-full bg-white object-contain p-1" />
+            ) : (
+              <>
+                <Plus className="text-gold" />
+                Upload QR image
+              </>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (!f) return;
+                try {
+                  setError(null);
+                  setQr(await imageToDataUrl(f));
+                  dirty();
+                } catch (err) {
+                  setError((err as Error).message);
+                }
+              }}
+            />
+          </label>
+          {qr && <button type="button" className="mt-2 text-xs text-faint hover:text-danger" onClick={() => { setQr(null); dirty(); }}>Remove QR code</button>}
+        </div>
+      </div>
+
+      <h3 className="mb-2 mt-6 text-ink">Price table</h3>
+      <p className="mb-3 text-xs text-muted">
+        Customers can only buy whole multiples of a row. Give bigger packs a better rate to encourage them. The AI cost column is what those credits cost you at most.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead className="text-left text-xs uppercase text-faint">
+            <tr><th className="pb-2">Price (₹)</th><th className="pb-2">Credits</th><th className="pb-2">Credits per ₹</th><th className="pb-2">AI cost</th><th /></tr>
+          </thead>
+          <tbody>
+            {packs.map((p, i) => {
+              const r = Number(p.rupees);
+              const c = Number(p.credits);
+              return (
+                <tr key={i}>
+                  <td className="py-1 pr-2"><input className="input !py-2" inputMode="numeric" value={p.rupees} onChange={(e) => { setPacks(packs.map((x, j) => (j === i ? { ...x, rupees: e.target.value } : x))); dirty(); }} /></td>
+                  <td className="py-1 pr-2"><input className="input !py-2" inputMode="numeric" value={p.credits} onChange={(e) => { setPacks(packs.map((x, j) => (j === i ? { ...x, credits: e.target.value } : x))); dirty(); }} /></td>
+                  <td className="py-1 pr-2 text-muted">{r > 0 && c > 0 ? (c / r).toFixed(1) : '-'}</td>
+                  <td className="py-1 pr-2 text-muted">{c > 0 ? `$${(c * settings.creditUsd).toFixed(2)}` : '-'}</td>
+                  <td className="py-1 text-right"><button type="button" className="p-2 text-faint hover:text-danger" onClick={() => { setPacks(packs.filter((_, j) => j !== i)); dirty(); }} aria-label="Remove row"><Trash2 size={16} /></button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button type="button" className="btn-ghost mt-2 !py-1.5" onClick={() => { setPacks([...packs, { rupees: '', credits: '' }]); dirty(); }}><Plus size={14} /> Add row</button>
+      {!settings.payment.upiId && !settings.payment.packs.length && (
+        <p className="hint">Until a UPI ID and at least one row are saved, customers see &quot;Buying credits isn&apos;t open just yet&quot;.</p>
+      )}
+
+      <div className="mt-5 flex items-center gap-3">
+        <button className="btn-primary" onClick={save} disabled={busy || !validPacks}>{busy ? <Spinner /> : 'Save payment settings'}</button>
         {saved && <span className="text-sm text-ok">Saved.</span>}
       </div>
       <div className="mt-3"><ErrorNote message={error} /></div>

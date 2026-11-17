@@ -23,23 +23,27 @@ enum ReadingType {
 }
 
 model User {
-  id               String         @id @default(cuid())
-  email            String         @unique
+  id               String           @id @default(cuid())
+  email            String           @unique
   passwordHash     String
   name             String
-  role             Role           @default(USER)
+  role             Role             @default(USER)
   // Blocked accounts cannot sign in or use the API.
-  disabled         Boolean        @default(false)
+  disabled         Boolean          @default(false)
   // Per-user override of the default AI credit allowance (1 credit =
   // $0.001 of model cost). Null means the default applies.
   creditLimit      Int?
-  unlimitedCredits Boolean        @default(false)
-  createdAt        DateTime       @default(now())
+  unlimitedCredits Boolean          @default(false)
+  // Bought or granted credits, used once the free allowance is spent.
+  creditBalance    Float            @default(0)
+  createdAt        DateTime         @default(now())
   lastSeenAt       DateTime?
   profiles         BirthProfile[]
   readings         Reading[]
   conversations    Conversation[]
   usage            AiUsage[]
+  paymentRequests  PaymentRequest[]
+  creditGrants     CreditGrant[]
 }
 
 // A person whose birth details are known. Every user has one "self" profile
@@ -136,4 +140,41 @@ model AiUsage {
 
   @@index([createdAt])
   @@index([userId])
+}
+
+// A customer's claim that they paid by UPI, with the screenshot as proof.
+// An admin checks it and approves (adding credits) or declines it.
+model PaymentRequest {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credits      Int
+  rupees       Int
+  screenshot   String
+  // pending | approved | rejected
+  status       String    @default("pending")
+  // Credits actually added on approval (may differ from the request).
+  creditsAdded Int?
+  // Shown to the customer; required when rejecting.
+  note         String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+// Every change to a user's credit balance made by an admin.
+model CreditGrant {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credits     Float
+  note        String?
+  paymentId   String?
+  grantedById String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

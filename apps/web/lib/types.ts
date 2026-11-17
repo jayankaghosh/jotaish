@@ -35,6 +35,7 @@ export interface Usage {
   remaining: number | null;
   percentLeft: number | null;
   spentUsd: number;
+  balance: number;
   period: 'day' | 'month' | 'total';
   resetsAt: string | null;
   source: 'default' | 'custom' | 'unlimited' | 'admin';
@@ -80,4 +81,22 @@ export interface Place {
   latitude: number;
   longitude: number;
   timezone: string;
+}
+
+export interface CreditPack {
+  rupees: number;
+  credits: number;
+}
+
+export interface PaymentRequest {
+  id: string;
+  credits: number;
+  rupees: number;
+  screenshot?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  creditsAdded?: number | null;
+  note?: string | null;
+  createdAt: string;
+  reviewedAt?: string | null;
+  user?: Pick<User, 'id' | 'name' | 'email'> | null;
 }

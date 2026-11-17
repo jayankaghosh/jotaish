@@ -1,14 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import { AdminShell } from '@/components/AdminShell';
+import { PaymentCard } from '@/components/PaymentCard';
 import { BackLink, ErrorNote, Spinner, formatDate } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { gql } from '@/lib/gql';
 import { READING_SUMMARY, USAGE_FIELDS, USER_FIELDS } from '@/lib/fragments';
 import { serviceByType } from '@/lib/services';
-import type { Conversation, Reading, Usage, User } from '@/lib/types';
+import type { Conversation, PaymentRequest, Reading, Usage, User } from '@/lib/types';
 
 type Tab = 'readings' | 'conversations' | 'profiles';
 
@@ -80,6 +81,8 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
           )}
 
           <LimitCard user={user} onChange={(u) => setUser((prev) => (prev ? { ...prev, ...u } : prev))} />
+
+          <CreditsCard user={user} onChange={(u) => setUser((prev) => (prev ? { ...prev, ...u } : prev))} />
 
           <div className="mb-6 flex gap-2">
             {([['readings', `Readings (${readings.length})`], ['conversations', `Conversations (${conversations.length})`], ['profiles', `Birth details (${user.profiles.length})`]] as [Tab, string][]).map(([k, l]) => (
@@ -217,6 +220,107 @@ function LimitCard({ user, onChange }: { user: User; onChange: (u: Partial<User>
           </div>
           <div className="mt-3"><ErrorNote message={error} /></div>
         </>
+      )}
+    </section>
+  );
+}
+
+interface Grant {
+  id: string;
+  credits: number;
+  note: string | null;
+  grantedBy: string | null;
+  createdAt: string;
+}
+
+function CreditsCard({ user, onChange }: { user: User; onChange: (u: Partial<User>) => void }) {
+  const [grants, setGrants] = useState<Grant[]>([]);
+  const [payments, setPayments] = useState<PaymentRequest[]>([]);
+  const [direction, setDirection] = useState<'add' | 'remove'>('add');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    gql<{ adminUserGrants: Grant[]; adminUserPayments: PaymentRequest[]; adminUser: Pick<User, 'usage'> }>(
+      `query($id: ID!) { adminUserGrants(userId: $id) { id credits note grantedBy createdAt } adminUserPayments(userId: $id) { id credits rupees screenshot status creditsAdded note createdAt reviewedAt } adminUser(id: $id) { usage { ${USAGE_FIELDS} } } }`,
+      { id: user.id },
+    ).then((d) => {
+      setGrants(d.adminUserGrants);
+      setPayments(d.adminUserPayments);
+      onChange({ usage: d.adminUser.usage });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]);
+
+  useEffect(() => load(), [load]);
+
+  async function grant() {
+    setBusy(true);
+    setError(null);
+    try {
+      const credits = Number(amount) * (direction === 'add' ? 1 : -1);
+      await gql(`mutation($id: ID!, $c: Int!, $n: String) { grantCredits(userId: $id, credits: $c, note: $n) { id } }`, { id: user.id, c: credits, n: note || null });
+      setAmount('');
+      setNote('');
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card mb-8 p-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+        <h2 className="font-display text-2xl text-ink">Bought credits</h2>
+        <p className="text-sm text-muted">Balance <span className="font-display text-2xl text-gold-soft">{(user.usage?.balance ?? 0).toLocaleString('en-IN')}</span> credits</p>
+      </div>
+      <p className="mt-1 text-sm text-muted">Used after the free allowance. Give credits for a verified payment, as a goodwill gesture, or remove them to correct a mistake.</p>
+
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <select className="input sm:w-36" value={direction} onChange={(e) => setDirection(e.target.value as 'add' | 'remove')} aria-label="Add or remove">
+          <option value="add">Give</option>
+          <option value="remove">Remove</option>
+        </select>
+        <input className="input sm:w-32" inputMode="numeric" placeholder="Credits" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))} />
+        <input className="input flex-1" placeholder="Reason (kept in the history)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <button className="btn-primary" onClick={grant} disabled={busy || !Number(amount)}>{busy ? <Spinner /> : direction === 'add' ? 'Give credits' : 'Remove credits'}</button>
+      </div>
+      <div className="mt-3"><ErrorNote message={error} /></div>
+
+      {payments.length > 0 && (
+        <>
+          <h3 className="mb-2 mt-6 text-ink">Payments from this user</h3>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {payments.map((p) => <PaymentCard key={p.id} payment={p} onZoom={setZoom} onReviewed={load} showUser={false} />)}
+          </div>
+        </>
+      )}
+
+      {grants.length > 0 && (
+        <>
+          <h3 className="mb-2 mt-6 text-ink">History</h3>
+          <ul className="divide-y divide-line rounded-xl border border-line text-sm">
+            {grants.map((g) => (
+              <li key={g.id} className="flex flex-wrap justify-between gap-2 px-4 py-2.5">
+                <span className={g.credits > 0 ? 'text-ok' : 'text-danger'}>{g.credits > 0 ? '+' : ''}{g.credits.toLocaleString('en-IN')} credits</span>
+                <span className="flex-1 text-muted">{g.note ?? ''}</span>
+                <span className="text-xs text-faint">{g.grantedBy ? `${g.grantedBy} · ` : ''}{formatDate(g.createdAt, true)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {zoom && (
+        <button className="fixed inset-0 z-50 flex items-center justify-center bg-night/90 p-4" onClick={() => setZoom(null)} aria-label="Close screenshot">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={zoom} alt="Payment screenshot" className="max-h-full max-w-full rounded-xl" />
+        </button>
       )}
     </section>
   );

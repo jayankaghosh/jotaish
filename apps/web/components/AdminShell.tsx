@@ -2,15 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
-import { BarChart3, LogOut, Settings, Users } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { BarChart3, IndianRupee, LogOut, Settings, Users } from 'lucide-react';
+import { gql } from '@/lib/gql';
 import { useAuth } from '@/lib/auth';
 import { Logo } from './Logo';
 import { Spinner } from './ui';
 
+export const PAYMENTS_CHANGED = 'jotaish:payments-changed';
+
 const TABS = [
   { href: '/admin', label: 'Overview', icon: BarChart3 },
   { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/payments', label: 'Payments', icon: IndianRupee },
   { href: '/admin/settings', label: 'AI settings', icon: Settings },
 ];
 
@@ -21,6 +25,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const allowed = user?.role === 'ADMIN';
+  const [pending, setPending] = useState(0);
+
+  useEffect(() => {
+    if (!allowed) return;
+    const load = () => gql<{ adminPendingPayments: number }>(`{ adminPendingPayments }`).then((d) => setPending(d.adminPendingPayments)).catch(() => undefined);
+    void load();
+    // Payment cards announce reviews so the badge stays current.
+    window.addEventListener(PAYMENTS_CHANGED, load);
+    return () => window.removeEventListener(PAYMENTS_CHANGED, load);
+  }, [allowed, pathname]);
 
   useEffect(() => {
     if (!loading && !allowed) router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
@@ -48,6 +62,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
               return (
                 <Link key={href} href={href} className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm ${active ? 'bg-gold text-night' : 'text-muted hover:text-ink'}`}>
                   <Icon size={16} /> <span className="hidden sm:inline">{label}</span>
+                  {href === '/admin/payments' && pending > 0 && (
+                    <span className={`rounded-full px-1.5 text-xs font-semibold ${active ? 'bg-night text-gold' : 'bg-gold text-night'}`}>{pending}</span>
+                  )}
                 </Link>
               );
             })}

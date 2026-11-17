@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, LayoutGrid, LogOut, Menu, MessageCircle, User as UserIcon, X } from 'lucide-react';
+import { BookOpen, Coins, LayoutGrid, LogOut, Menu, MessageCircle, User as UserIcon, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Logo } from './Logo';
 import { Spinner } from './ui';
@@ -12,6 +12,7 @@ const NAV = [
   { href: '/dashboard', label: 'Home', icon: LayoutGrid },
   { href: '/chat', label: 'Ask Jyotaish', icon: MessageCircle },
   { href: '/readings', label: 'My readings', icon: BookOpen },
+  { href: '/credits', label: 'Credits', icon: Coins },
   { href: '/profile', label: 'Profile', icon: UserIcon },
 ];
 

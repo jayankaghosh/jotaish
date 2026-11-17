@@ -19,3 +19,16 @@ export async function photoToDataUrl(file: File, maxSide = 1600): Promise<string
     URL.revokeObjectURL(url);
   }
 }
+
+// Reads an image as-is (no re-encoding), for things like QR codes that must
+// stay sharp.
+export function imageToDataUrl(file: File, maxBytes = 2_000_000): Promise<string> {
+  if (!file.type.startsWith('image/')) return Promise.reject(new Error('Please choose an image (PNG or JPG).'));
+  if (file.size > maxBytes) return Promise.reject(new Error('That image is too large. Please use one under 2 MB.'));
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('That image could not be read.'));
+    reader.readAsDataURL(file);
+  });
+}

@@ -8,6 +8,7 @@ import { searchPlaces } from '../astro/geo';
 import { saveProfile, type ProfileInput } from '../services/profiles';
 import * as readings from '../services/readings';
 import { CREDIT_USD, assertCanInteract, getLimitSettings, setLimitSettings, usageFor } from '../services/limits';
+import { getPaymentSettings, grantCredits, quote, reviewPayment, setPaymentSettings, submitPayment } from '../services/payments';
 import { greeting, sendMessage, streamMessage, type ChatEvent } from '../ai/agent';
 import { AiError, complete, listOpenRouterModels } from '../ai/openrouter';
 import {
@@ -45,11 +46,12 @@ const JSONScalar = new GraphQLScalarType({
 });
 
 async function adminSettings() {
-  const [models, stored, temperature, limits] = await Promise.all([
+  const [models, stored, temperature, limits, payment] = await Promise.all([
     getModels(),
     prisma.setting.findUnique({ where: { key: 'openrouter_api_key' } }),
     getTemperature(),
     getLimitSettings(),
+    getPaymentSettings(),
   ]);
   const key = await getApiKey();
   return {
@@ -60,6 +62,7 @@ async function adminSettings() {
     creditLimit: limits.limit,
     creditPeriod: limits.period,
     creditUsd: CREDIT_USD,
+    payment,
     tasks: (Object.keys(AI_TASKS) as AiTask[]).map((task) => ({ task, ...AI_TASKS[task], needs: [...AI_TASKS[task].needs], model: models[task] })),
     recommendedModels: RECOMMENDED_MODELS,
   };
@@ -114,6 +117,16 @@ export const resolvers = {
     usage: (u: User, _: unknown, ctx: Context) => (ctx.user && (ctx.user.id === u.id || ctx.user.role === 'ADMIN') ? usageFor(u) : null),
   },
   Usage: { resetsAt: iso('resetsAt') },
+  PaymentRequest: {
+    createdAt: iso('createdAt'),
+    reviewedAt: iso('reviewedAt'),
+    user: (p: { userId: string }, _: unknown, ctx: Context) => (ctx.user?.role === 'ADMIN' ? prisma.user.findUnique({ where: { id: p.userId } }) : null),
+  },
+  CreditGrant: {
+    createdAt: iso('createdAt'),
+    grantedBy: async (g: { grantedById: string | null }) =>
+      g.grantedById ? (await prisma.user.findUnique({ where: { id: g.grantedById }, select: { name: true } }))?.name ?? null : null,
+  },
   BirthProfile: { createdAt: iso('createdAt') },
   Reading: {
     createdAt: iso('createdAt'),
@@ -149,6 +162,17 @@ export const resolvers = {
       return searchPlaces(query);
     },
     aiReady: async () => Boolean(await getApiKey()),
+    buyCreditsInfo: async (_: unknown, __: unknown, ctx: Context) => {
+      requireUser(ctx);
+      const p = await getPaymentSettings();
+      return { available: Boolean(p.upiId && p.packs.length), upiId: p.upiId || null, payeeName: p.payeeName, qrCode: p.qrCode, packs: p.packs };
+    },
+    creditQuote: async (_: unknown, ask: { credits?: number; rupees?: number }, ctx: Context) => {
+      requireUser(ctx);
+      return quote((await getPaymentSettings()).packs, ask);
+    },
+    myPayments: (_: unknown, __: unknown, ctx: Context) =>
+      prisma.paymentRequest.findMany({ where: { userId: requireUser(ctx).id }, orderBy: { createdAt: 'desc' }, take: 50 }),
 
     adminStats: async (_: unknown, __: unknown, ctx: Context) => {
       requireAdmin(ctx);
@@ -212,6 +236,27 @@ export const resolvers = {
     adminReading: (_: unknown, { id }: { id: string }, ctx: Context) => {
       requireAdmin(ctx);
       return prisma.reading.findUnique({ where: { id } });
+    },
+    adminPayments: async (_: unknown, { status, skip, take }: { status?: string; skip?: number; take?: number }, ctx: Context) => {
+      requireAdmin(ctx);
+      const where = status && status !== 'all' ? { status } : {};
+      const [total, items] = await Promise.all([
+        prisma.paymentRequest.count({ where }),
+        prisma.paymentRequest.findMany({ where, orderBy: { createdAt: status === 'pending' ? 'asc' : 'desc' }, skip: skip ?? 0, take: Math.min(take ?? 20, 50) }),
+      ]);
+      return { total, items };
+    },
+    adminPendingPayments: (_: unknown, __: unknown, ctx: Context) => {
+      requireAdmin(ctx);
+      return prisma.paymentRequest.count({ where: { status: 'pending' } });
+    },
+    adminUserPayments: (_: unknown, { userId }: { userId: string }, ctx: Context) => {
+      requireAdmin(ctx);
+      return prisma.paymentRequest.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+    },
+    adminUserGrants: (_: unknown, { userId }: { userId: string }, ctx: Context) => {
+      requireAdmin(ctx);
+      return prisma.creditGrant.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 50 });
     },
     adminSettings: (_: unknown, __: unknown, ctx: Context) => {
       requireAdmin(ctx);
@@ -297,6 +342,7 @@ export const resolvers = {
       if (!found) throw userError('Conversation not found.');
       return prisma.conversation.update({ where: { id }, data: { title: title.trim().slice(0, 60) || found.title } });
     },
+    submitPayment: (_: unknown, args: { credits: number; rupees: number; screenshot: string }, ctx: Context) => submitPayment(requireUser(ctx).id, args),
     deleteConversation: async (_: unknown, { id }: { id: string }, ctx: Context) => {
       const { count } = await prisma.conversation.deleteMany({ where: { id, userId: requireUser(ctx).id } });
       return count > 0;
@@ -308,6 +354,7 @@ export const resolvers = {
       else if (input.apiKey?.trim()) await setApiKey(input.apiKey.trim());
       if (typeof input.temperature === 'number') await setTemperature(input.temperature);
       if (input.limits) await setLimitSettings(input.limits);
+      if (input.payment) await setPaymentSettings(input.payment);
       if (input.models?.length) {
         const valid = input.models.filter((m: { task: string; model: string }) => m.task in AI_TASKS && m.model.trim());
         await setModels(Object.fromEntries(valid.map((m: { task: string; model: string }) => [m.task, m.model.trim()])));
@@ -339,6 +386,10 @@ export const resolvers = {
       if (admin.id === userId) throw userError('You cannot block your own account.');
       return prisma.user.update({ where: { id: userId }, data: { disabled } });
     },
+    reviewPayment: (_: unknown, args: { id: string; approve: boolean; credits?: number; note?: string }, ctx: Context) =>
+      reviewPayment(args.id, requireAdmin(ctx).id, args.approve, args.credits, args.note),
+    grantCredits: (_: unknown, args: { userId: string; credits: number; note?: string }, ctx: Context) =>
+      grantCredits(args.userId, args.credits, requireAdmin(ctx).id, args.note),
     setUserLimit: async (_: unknown, { userId, mode, limit }: { userId: string; mode: string; limit?: number | null }, ctx: Context) => {
       requireAdmin(ctx);
       if (mode === 'unlimited') return prisma.user.update({ where: { id: userId }, data: { unlimitedCredits: true, creditLimit: null } });

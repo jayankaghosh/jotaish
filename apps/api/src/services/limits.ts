@@ -54,12 +54,16 @@ export interface Usage {
   remaining: number | null;
   percentLeft: number | null;
   spentUsd: number;
+  // Bought or granted credits left, used after the free allowance.
+  balance: number;
   period: LimitPeriod;
   resetsAt: Date | null;
   source: 'default' | 'custom' | 'unlimited' | 'admin';
 }
 
-export async function usageFor(user: Pick<User, 'id' | 'role' | 'creditLimit' | 'unlimitedCredits'>): Promise<Usage> {
+type UsageUser = Pick<User, 'id' | 'role' | 'creditLimit' | 'unlimitedCredits' | 'creditBalance'>;
+
+export async function usageFor(user: UsageUser): Promise<Usage> {
   const settings = await getLimitSettings();
   const { start, resetsAt } = periodWindow(settings.period);
   // Every AI call made for this person counts, including reports written
@@ -88,25 +92,48 @@ export async function usageFor(user: Pick<User, 'id' | 'role' | 'creditLimit' | 
   }
   const remaining = limit === null ? null : Math.max(0, limit - used);
   const percentLeft = limit === null ? null : limit === 0 ? 0 : Math.floor((remaining! / limit) * 100);
-  return { used, limit, remaining, percentLeft, spentUsd, period: settings.period, resetsAt, source };
+  return { used, limit, remaining, percentLeft, spentUsd, balance: Math.floor(user.creditBalance), period: settings.period, resetsAt, source };
 }
 
 function limitMessage(usage: Usage) {
-  if (usage.period === 'day') {
-    return "You've used today's consultation allowance. It refreshes tomorrow, and everything you've received so far is saved in My readings.";
-  }
+  const buy = 'You can buy more credits from the Credits page to continue right away.';
+  if (usage.period === 'day') return `You've used today's free allowance. It refreshes tomorrow. ${buy}`;
   if (usage.period === 'month') {
     const when = usage.resetsAt!.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' });
-    return `You've used this month's consultation allowance. It refreshes on ${when}, and everything you've received so far is saved in My readings.`;
+    return `You've used this month's free allowance. It refreshes on ${when}. ${buy}`;
   }
-  return "You've used the consultation allowance included with your account. Everything you've received so far is saved in My readings.";
+  return `You've used the free allowance included with your account. ${buy}`;
 }
 
-// Throws a friendly error once the allowance is used up. A single reply can
-// go slightly over; the next one is then refused.
+export function isOutOfCredits(usage: Usage) {
+  return usage.remaining !== null && usage.remaining <= 0 && usage.balance <= 0;
+}
+
+// Throws a friendly error once both the free allowance and any bought
+// credits are used up. A single reply can go slightly over; the next one is
+// then refused.
 export async function assertCanInteract(user: User) {
   const usage = await usageFor(user);
-  if (usage.remaining !== null && usage.remaining <= 0) {
+  if (isOutOfCredits(usage)) {
     throw new GraphQLError(limitMessage(usage), { extensions: { code: 'LIMIT_REACHED' } });
   }
+}
+
+// Called after each AI call is recorded: whatever part of it went beyond the
+// free allowance is taken from the user's bought credits.
+export async function chargeOverflow(userId: string, costUsd: number) {
+  if (costUsd <= 0) return;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.creditBalance <= 0) return;
+  const usage = await usageFor(user);
+  if (usage.limit === null) return;
+  const callCredits = costUsd / CREDIT_USD;
+  const usedAfter = usage.spentUsd / CREDIT_USD;
+  const usedBefore = usedAfter - callCredits;
+  const overflow = usedAfter - Math.max(usage.limit, usedBefore);
+  if (overflow <= 0) return;
+  await prisma.user.update({
+    where: { id: userId },
+    data: { creditBalance: Math.max(0, user.creditBalance - overflow) },
+  });
 }

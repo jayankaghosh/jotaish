@@ -1,19 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { Hourglass } from 'lucide-react';
+import { Coins, Hourglass } from 'lucide-react';
 import type { Usage } from '@/lib/types';
 
-const ALLOWANCE = { day: "today's allowance", month: "this month's allowance", total: 'your allowance' } as const;
+const ALLOWANCE = { day: "today's free allowance", month: "this month's free allowance", total: 'your free allowance' } as const;
 
-// Customers see a percentage, never credits or prices.
+export const formatCredits = (n: number) => n.toLocaleString('en-IN');
+
+// Customers see their free allowance as a percentage and bought credits as a
+// number, never costs.
 export function usageLine(usage: Usage | null | undefined): string | null {
   if (!usage || usage.percentLeft === null) return null;
-  return `${usage.percentLeft}% of ${ALLOWANCE[usage.period]} left`;
+  const free = `${usage.percentLeft}% of ${ALLOWANCE[usage.period]} left`;
+  if (usage.balance <= 0) return free;
+  if (usage.percentLeft === 0) return `Using your credits: ${formatCredits(usage.balance)} left`;
+  return `${free} · ${formatCredits(usage.balance)} credits`;
 }
 
 export function isOutOfAllowance(usage: Usage | null | undefined) {
-  return Boolean(usage && usage.remaining !== null && usage.remaining <= 0);
+  return Boolean(usage && usage.remaining !== null && usage.remaining <= 0 && usage.balance <= 0);
 }
 
 function refreshText(usage: Usage) {
@@ -31,9 +37,12 @@ export function OutOfAllowance({ usage }: { usage: Usage }) {
       <Hourglass className="text-gold" size={28} />
       <p className="font-display text-2xl text-ink">You've used {ALLOWANCE[usage.period]}</p>
       <p className="max-w-md text-sm text-muted">
-        {refreshText(usage)} Everything you've received so far is saved, and you can read it any time.
+        {refreshText(usage)} To continue now, you can buy credits. Everything you've received so far is saved in My readings.
       </p>
-      <Link href="/readings" className="btn-ghost mt-1">Open My readings</Link>
+      <div className="mt-1 flex flex-wrap justify-center gap-2">
+        <Link href="/credits" className="btn-primary"><Coins size={16} /> Buy credits</Link>
+        <Link href="/readings" className="btn-ghost">Open My readings</Link>
+      </div>
     </div>
   );
 }

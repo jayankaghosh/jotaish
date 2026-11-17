@@ -1,6 +1,7 @@
 import { prisma } from '../lib/db';
 import { env } from '../lib/env';
 import { getApiKey, getModels, getTemperature, type AiTask } from './settings';
+import { chargeOverflow } from '../services/limits';
 
 export type ContentPart =
   | { type: 'text'; text: string }
@@ -123,6 +124,7 @@ export async function complete(opts: CompletionOptions): Promise<Completion> {
         },
       })
       .catch(() => undefined);
+    if (opts.userId && cost) await chargeOverflow(opts.userId, cost).catch(() => undefined);
   }
 }
 

@@ -1,6 +1,6 @@
 export const PROFILE_FIELDS = `id name relation gender birthDate birthTime birthPlace latitude longitude timezone`;
 
-export const USAGE_FIELDS = `used limit remaining percentLeft spentUsd period resetsAt source`;
+export const USAGE_FIELDS = `used limit remaining percentLeft spentUsd balance period resetsAt source`;
 
 export const USER_FIELDS = `id email name role disabled createdAt lastSeenAt readingCount conversationCount creditLimit unlimitedCredits usage { ${USAGE_FIELDS} } profiles { ${PROFILE_FIELDS} }`;
 
