@@ -45,7 +45,7 @@ export async function gql<T = any>(query: string, variables?: Record<string, unk
       body: JSON.stringify({ query, variables }),
     });
   } catch {
-    throw new GqlError('We could not reach Jotaish. Please check your connection and try again.');
+    throw new GqlError('We could not reach Jotaish. Please check your connection and try again.', 'NETWORK');
   }
   const json = await res.json().catch(() => ({}));
   if (json.errors?.length) {
@@ -73,7 +73,7 @@ export async function gqlStream<T = any>(query: string, variables: Record<string
       body: JSON.stringify({ query, variables }),
     });
   } catch {
-    throw new GqlError('We could not reach Jotaish. Please check your connection and try again.');
+    throw new GqlError('We could not reach Jotaish. Please check your connection and try again.', 'NETWORK');
   }
   if (!res.ok || !res.body) throw new GqlError('Something went wrong. Please try again.');
 

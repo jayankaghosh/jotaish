@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useT, type MessageKey } from '@/lib/i18n';
 import type { Usage } from '@/lib/types';
 import { LanguagePicker } from './LanguagePicker';
+import { OfflineBanner } from './Pwa';
 import { Logo } from './Logo';
 import { Spinner } from './ui';
 import { formatCredits } from './UsageNote';
@@ -96,6 +97,7 @@ export function Shell({ children, wide = false, immersive = false }: ShellProps)
             </button>
           </div>
         </div>
+        <OfflineBanner />
         {!aiReady && <div className="border-t border-gold/30 bg-gold/10 px-4 py-2 text-center text-sm text-gold-soft">{t('shell.notReady')}</div>}
       </header>
 

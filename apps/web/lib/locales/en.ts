@@ -632,6 +632,22 @@ const en = {
   'reading.copied': 'Copied',
   'reading.shareFooter': 'From my reading on Jotaish',
   'me.creditsBody': 'See your allowance and buy credits.',
+  // Offline and installing the app
+  'offline.title': 'No internet',
+  'offline.body': 'You\'re offline. Check your connection and try again.',
+  'offline.retry': 'Try again',
+  'offline.readings': 'Open my saved readings',
+  'offline.banner': 'You\'re offline. Showing the readings saved on this device.',
+  'offline.notSaved': 'This reading isn\'t saved on this device yet. Open it once while online to read it offline.',
+  'install.cta': 'Install app',
+  'install.title': 'Get the Jotaish app',
+  'install.body': 'Opens full screen from your home screen, and your readings work offline.',
+  'install.dismiss': 'Not now',
+  'install.iosTitle': 'Install on iPhone',
+  'install.ios1': 'Tap the Share button at the bottom of Safari.',
+  'install.ios2': 'Scroll down and tap "Add to Home Screen".',
+  'install.ios3': 'Tap "Add" in the top corner.',
+  'install.done': 'Got it',
   // KEYS
 };
 

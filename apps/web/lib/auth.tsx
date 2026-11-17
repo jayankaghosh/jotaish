@@ -1,8 +1,9 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { getToken, gql, setToken } from './gql';
+import { GqlError, getToken, gql, setToken } from './gql';
 import { USER_FIELDS } from './fragments';
+import { clearOffline, isOffline, saveUser, savedUser } from './offline';
 import type { User } from './types';
 
 interface AuthState {
@@ -31,9 +32,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await gql<{ me: User | null; aiReady: boolean }>(`{ me { ${USER_FIELDS} } aiReady }`);
       setUser(data.me);
       setAiReady(data.aiReady);
-      if (!data.me) setToken(null);
+      if (data.me) void saveUser(data.me);
+      else setToken(null);
       return data.me;
-    } catch {
+    } catch (e) {
+      // Without internet, carry on as the account last seen on this device
+      // so saved readings can still be opened.
+      if (isOffline() || (e instanceof GqlError && e.code === 'NETWORK')) {
+        const saved = (await savedUser()) ?? null;
+        setUser(saved);
+        return saved;
+      }
       return null;
     } finally {
       setLoading(false);
@@ -55,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => {
     setToken(null);
     setUser(null);
+    void clearOffline();
   }, []);
 
   return <AuthContext.Provider value={{ user, loading, aiReady, signIn, signOut, refresh }}>{children}</AuthContext.Provider>;

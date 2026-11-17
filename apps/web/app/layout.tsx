@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Noto_Sans_Bengali, Noto_Sans_Devanagari, Noto_Sans_Kannada, Noto_Sans_Malayalam, Sora } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth';
 import { I18nProvider } from '@/lib/i18n';
+import { OfflineGate, PwaProvider } from '@/components/Pwa';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -26,7 +27,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={fonts}>
       <body className="font-sans antialiased">
         <AuthProvider>
-          <I18nProvider>{children}</I18nProvider>
+          <I18nProvider>
+            <PwaProvider>
+              <OfflineGate>{children}</OfflineGate>
+            </PwaProvider>
+          </I18nProvider>
         </AuthProvider>
       </body>
     </html>

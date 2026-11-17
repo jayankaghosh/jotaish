@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowRight, BookOpen, MessageCircle, Sparkles, UserPlus } from 'lucide-react';
 import { Shell } from '@/components/Shell';
+import { InstallBanner } from '@/components/Pwa';
 import { CardOfTheDay, NumberOfTheDay, SkyCard, TODAY_QUERY, type TodaySky } from '@/components/today';
 import { formatDate } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -58,6 +59,8 @@ export default function Today() {
         <p className="text-sm text-muted">{dateLine}</p>
         <h1 className="mt-0.5 font-display text-3xl font-semibold text-ink sm:text-4xl">{greeting}</h1>
       </div>
+
+      <InstallBanner />
 
       {next && readings && (
         <Link href={next.href} className="mt-5 flex items-center gap-4 rounded-3xl border border-gold/35 bg-gold/[0.07] p-4 transition hover:border-gold/60">

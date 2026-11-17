@@ -8,6 +8,7 @@ import { Shell } from '@/components/Shell';
 import { BirthWizard } from '@/components/BirthWizard';
 import { ErrorNote, Spinner, Tip } from '@/components/ui';
 import { useUsageLine } from '@/components/UsageNote';
+import { InstallButton } from '@/components/Pwa';
 import { useAuth } from '@/lib/auth';
 import { gql } from '@/lib/gql';
 import { LANGUAGES, useI18n } from '@/lib/i18n';
@@ -101,6 +102,7 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <AccountCard />
           <PasswordCard />
+          <InstallButton className="btn-primary w-full" />
           <button
             className="btn-ghost w-full"
             onClick={() => {

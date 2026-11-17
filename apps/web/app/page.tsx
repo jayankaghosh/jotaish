@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, MessageCircle, Sun } from 'lucide-react';
 import { LanguagePicker } from '@/components/LanguagePicker';
+import { InstallButton } from '@/components/Pwa';
 import { LegalFooter } from '@/components/LegalPage';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/lib/auth';
@@ -54,7 +55,8 @@ export default function Landing() {
             <MessageCircle size={18} /> {t('landing.talk')}
           </Link>
         </div>
-        <p className="mt-5 text-xs text-faint">{t('landing.tags')}</p>
+        <div className="mt-4 flex justify-center"><InstallButton className="btn !min-h-9 text-gold hover:text-gold-soft" /></div>
+        <p className="mt-4 text-xs text-faint">{t('landing.tags')}</p>
       </section>
 
       <section className="mx-auto max-w-6xl pb-16 sm:px-4 sm:pb-20">

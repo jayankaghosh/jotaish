@@ -9,6 +9,7 @@ import { ReadingView } from '@/components/ReadingView';
 import { BackLink, Spinner } from '@/components/ui';
 import { gql } from '@/lib/gql';
 import { READING_FIELDS } from '@/lib/fragments';
+import { isOffline, saveReading, savedReading, useOnline } from '@/lib/offline';
 import { SERVICES, serviceByType, serviceKey } from '@/lib/services';
 import { useT } from '@/lib/i18n';
 import type { Reading } from '@/lib/types';
@@ -20,11 +21,16 @@ function ReadingPageInner({ id }: { id: string }) {
   const [reading, setReading] = useState<Reading | null | undefined>(undefined);
   const [starting, setStarting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const online = useOnline();
 
   useEffect(() => {
     gql<{ reading: Reading | null }>(`query($id: ID!) { reading(id: $id) { ${READING_FIELDS} } }`, { id })
-      .then((d) => setReading(d.reading))
-      .catch(() => setReading(null));
+      .then((d) => {
+        setReading(d.reading);
+        if (d.reading) void saveReading(d.reading);
+      })
+      // Offline: the copy saved on this device, if there is one.
+      .catch(async () => setReading((await savedReading(id)) ?? null));
   }, [id]);
 
   async function discuss() {
@@ -58,7 +64,13 @@ function ReadingPageInner({ id }: { id: string }) {
   }
 
   if (reading === undefined) return <Spinner />;
-  if (reading === null) return <p className="text-muted">{t('reading.notFound')} <Link href="/readings" className="text-gold">{t('reading.seeAll')}</Link></p>;
+  if (reading === null) {
+    return (
+      <p className="text-muted">
+        {isOffline() ? t('offline.notSaved') : t('reading.notFound')} <Link href="/readings" className="text-gold">{t('reading.seeAll')}</Link>
+      </p>
+    );
+  }
 
   const service = serviceByType(reading.type);
   const others = SERVICES.filter((s) => s.type !== reading.type).slice(0, 3);
@@ -79,12 +91,14 @@ function ReadingPageInner({ id }: { id: string }) {
         <div className="flex gap-2 print:hidden">
           <button className="btn-primary flex-1 sm:flex-none" onClick={share}><Share2 size={16} /> {copied ? t('reading.copied') : t('reading.share')}</button>
           <button className="btn-ghost hidden sm:inline-flex" onClick={() => window.print()} title={t('reading.print')} aria-label={t('reading.print')}><Printer size={16} /></button>
-          <button className="btn-ghost" onClick={remove} title={t('common.delete')} aria-label={t('common.delete')}><Trash2 size={16} /></button>
+          <button className={`btn-ghost ${online ? '' : 'hidden'}`} onClick={remove} title={t('common.delete')} aria-label={t('common.delete')}><Trash2 size={16} /></button>
         </div>
       </div>
 
       <ReadingView reading={reading} />
 
+      {online && (
+      <>
       <div className="card mt-8 flex flex-col items-center gap-4 border-violet/30 bg-violet/[0.08] p-6 text-center sm:p-8 print:hidden">
         <MessageCircle className="text-violet" size={28} />
         <div>
@@ -106,6 +120,8 @@ function ReadingPageInner({ id }: { id: string }) {
           ))}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

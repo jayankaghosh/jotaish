@@ -780,6 +780,22 @@ const bn: Messages = {
   'reading.copied': 'কপি হয়েছে',
   'reading.shareFooter': 'Jotaish-এ আমার ফলাদেশ থেকে',
   'me.creditsBody': 'কত ক্রেডিট বাকি আছে দেখুন, আর ক্রেডিট কিনুন।',
+  // Offline and installing the app
+  'offline.title': 'ইন্টারনেট নেই',
+  'offline.body': 'আপনি অফলাইনে আছেন। কানেকশন দেখে নিয়ে আবার চেষ্টা করুন।',
+  'offline.retry': 'আবার চেষ্টা করুন',
+  'offline.readings': 'আমার সেভ করা ফলাদেশ খুলুন',
+  'offline.banner': 'আপনি অফলাইনে আছেন। এই ডিভাইসে সেভ করা ফলাদেশগুলি দেখানো হচ্ছে।',
+  'offline.notSaved': 'এই ফলাদেশটি এখনও এই ডিভাইসে সেভ হয়নি। অফলাইনে পড়তে, ইন্টারনেট থাকার সময় একবার এটি খুলুন।',
+  'install.cta': 'অ্যাপ ইনস্টল করুন',
+  'install.title': 'Jotaish অ্যাপটি নিন',
+  'install.body': 'হোম স্ক্রিন থেকে পুরো স্ক্রিনে খোলে, আর আপনার ফলাদেশ অফলাইনেও দেখা যায়।',
+  'install.dismiss': 'এখন নয়',
+  'install.iosTitle': 'iPhone-এ ইনস্টল করুন',
+  'install.ios1': 'Safari-র নিচে থাকা "শেয়ার করুন" বোতামে ট্যাপ করুন।',
+  'install.ios2': 'নিচে স্ক্রোল করে "হোম স্ক্রিনে যোগ করুন"-এ ট্যাপ করুন।',
+  'install.ios3': 'উপরের কোণে "যোগ করুন"-এ ট্যাপ করুন।',
+  'install.done': 'বুঝেছি',
 };
 
 export default bn;

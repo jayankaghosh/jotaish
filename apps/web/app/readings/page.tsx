@@ -6,10 +6,27 @@ import { BookOpen } from 'lucide-react';
 import { Shell } from '@/components/Shell';
 import { EmptyState, PageTitle, Spinner, formatDate } from '@/components/ui';
 import { gql } from '@/lib/gql';
-import { READING_SUMMARY } from '@/lib/fragments';
+import { READING_FIELDS, READING_SUMMARY } from '@/lib/fragments';
+import { keepPages, saveReading, saveReadingList, savedReading, savedReadingList } from '@/lib/offline';
 import { SERVICES, serviceByType, serviceKey } from '@/lib/services';
 import { useT } from '@/lib/i18n';
 import type { Reading, ReadingType } from '@/lib/types';
+
+// Saves the list, any readings not yet on this device, and their pages, so
+// all of them open without internet.
+async function keepOffline(list: Reading[]) {
+  await saveReadingList(list);
+  const missing: string[] = [];
+  for (const r of list) if (!(await savedReading(r.id))) missing.push(r.id);
+  for (let i = 0; i < missing.length; i += 10) {
+    const batch = missing.slice(i, i + 10);
+    const query = `{ ${batch.map((id, n) => `r${n}: reading(id: ${JSON.stringify(id)}) { ${READING_FIELDS} }`).join(' ')} }`;
+    const data = await gql<Record<string, Reading | null>>(query).catch(() => null);
+    if (!data) return;
+    for (const r of Object.values(data)) if (r) await saveReading(r);
+  }
+  keepPages(['/readings', ...list.map((r) => `/readings/${r.id}`)]);
+}
 
 export default function ReadingsPage() {
   const t = useT();
@@ -17,7 +34,13 @@ export default function ReadingsPage() {
   const [filter, setFilter] = useState<ReadingType | null>(null);
 
   useEffect(() => {
-    gql<{ myReadings: Reading[] }>(`{ myReadings { ${READING_SUMMARY} } }`).then((d) => setReadings(d.myReadings)).catch(() => setReadings([]));
+    gql<{ myReadings: Reading[] }>(`{ myReadings { ${READING_SUMMARY} } }`)
+      .then((d) => {
+        setReadings(d.myReadings);
+        void keepOffline(d.myReadings);
+      })
+      // Offline: the copy saved on this device.
+      .catch(async () => setReadings((await savedReadingList()) ?? []));
   }, []);
 
   const shown = readings?.filter((r) => !filter || r.type === filter) ?? [];

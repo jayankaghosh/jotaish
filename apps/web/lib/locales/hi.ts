@@ -796,6 +796,22 @@ const hi: Messages = {
   'reading.copied': 'कॉपी हो गया',
   'reading.shareFooter': 'Jotaish पर मेरी रीडिंग से',
   'me.creditsBody': 'देखें कितने क्रेडिट बचे हैं और नए क्रेडिट खरीदें।',
+  // Offline and installing the app
+  'offline.title': 'इंटरनेट नहीं है',
+  'offline.body': 'आप ऑफ़लाइन हैं। अपना कनेक्शन जांचें और फिर से कोशिश करें।',
+  'offline.retry': 'फिर से कोशिश करें',
+  'offline.readings': 'मेरी सेव की हुई रीडिंग खोलें',
+  'offline.banner': 'आप ऑफ़लाइन हैं। इस डिवाइस पर सेव की हुई रीडिंग दिखाई जा रही हैं।',
+  'offline.notSaved': 'यह रीडिंग अभी इस डिवाइस पर सेव नहीं है। ऑफ़लाइन पढ़ने के लिए इसे एक बार इंटरनेट चालू रहते हुए खोलें।',
+  'install.cta': 'ऐप इंस्टॉल करें',
+  'install.title': 'Jotaish ऐप पाएं',
+  'install.body': 'होम स्क्रीन से पूरी स्क्रीन पर खुलता है, और आपकी रीडिंग ऑफ़लाइन भी चलती हैं।',
+  'install.dismiss': 'अभी नहीं',
+  'install.iosTitle': 'iPhone पर इंस्टॉल करें',
+  'install.ios1': 'Safari में नीचे दिए "शेयर करें" बटन पर टैप करें।',
+  'install.ios2': 'नीचे स्क्रॉल करें और "होम स्क्रीन में जोड़ें" पर टैप करें।',
+  'install.ios3': 'ऊपर कोने में "जोड़ें" पर टैप करें।',
+  'install.done': 'समझ गया',
 };
 
 export default hi;
