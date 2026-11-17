@@ -26,7 +26,7 @@ export async function saveProfile(userId: string, input: ProfileInput) {
   let birthPlace = input.birthPlace?.trim();
   if (latitude == null || longitude == null || !timezone) {
     const [place] = await searchPlaces(birthPlace ?? '');
-    if (!place) throw userError(`We could not find "${birthPlace}". Try the nearest city, for example "Varanasi, India".`);
+    if (!place) throw userError('We could not find "{place}". Try the nearest city, for example "Varanasi, India".', { place: birthPlace ?? '' });
     ({ latitude, longitude, timezone } = place);
     birthPlace = place.label;
   }

@@ -10,6 +10,10 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@expo-google-fonts/noto-sans-bengali": "^0.4.4",
+    "@expo-google-fonts/noto-sans-devanagari": "^0.4.2",
+    "@expo-google-fonts/noto-sans-kannada": "^0.4.3",
+    "@expo-google-fonts/noto-sans-malayalam": "^0.4.2",
     "@prisma/client": "^6.19.3",
     "astronomy-engine": "^2.1.19",
     "bcryptjs": "^3.0.3",

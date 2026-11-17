@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { AlertCircle, Info, Loader2 } from 'lucide-react';
+import { useT, type MessageKey } from '@/lib/i18n';
 
 export function Spinner({ size = 18 }: { size?: number }) {
   return <Loader2 size={size} className="animate-spin text-gold" />;
@@ -64,16 +65,23 @@ export function EmptyState({ icon, title, body, action }: { icon: ReactNode; tit
   );
 }
 
-const CONSULTING_STEPS = [
-  'Reading the details you shared…',
-  'Calculating planetary positions…',
-  'Consulting the classical texts…',
-  'Writing your reading with care…',
-  'Almost there, adding the final guidance…',
-];
+// Progress steps that fit what is being prepared, so a dream reading never
+// talks about planetary positions.
+const CONSULTING_STEPS: Record<string, MessageKey[]> = {
+  kundli: ['consulting.kundli.1', 'consulting.kundli.2', 'consulting.kundli.3', 'consulting.kundli.4'],
+  horoscope: ['consulting.horoscope.1', 'consulting.horoscope.2', 'consulting.horoscope.3'],
+  matching: ['consulting.matching.1', 'consulting.matching.2', 'consulting.matching.3', 'consulting.matching.4'],
+  tarot: ['consulting.tarot.1', 'consulting.tarot.2', 'consulting.tarot.3'],
+  numerology: ['consulting.numerology.1', 'consulting.numerology.2', 'consulting.numerology.3'],
+  palm: ['consulting.palm.1', 'consulting.palm.2', 'consulting.palm.3'],
+  dream: ['consulting.dream.1', 'consulting.dream.2', 'consulting.dream.3'],
+  general: ['consulting.general.1', 'consulting.general.2', 'consulting.general.3'],
+};
 
 // Long AI calls feel shorter when the person can see progress.
-export function Consulting({ steps = CONSULTING_STEPS, note }: { steps?: string[]; note?: string }) {
+export function Consulting({ kind = 'general' }: { kind?: string }) {
+  const t = useT();
+  const steps = (CONSULTING_STEPS[kind] ?? CONSULTING_STEPS.general).map((k) => t(k));
   const [i, setI] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setI((n) => Math.min(n + 1, steps.length - 1)), 6000);
@@ -86,20 +94,12 @@ export function Consulting({ steps = CONSULTING_STEPS, note }: { steps?: string[
         <div className="absolute inset-3 animate-spin rounded-full border-2 border-violet/20 border-b-violet" style={{ animationDuration: '3.6s', animationDirection: 'reverse' }} />
       </div>
       <p className="font-display text-2xl text-gold-soft">{steps[i]}</p>
-      <p className="mt-2 text-sm text-muted">{note ?? 'This usually takes under a minute. Please keep this page open.'}</p>
+      <p className="mt-2 text-sm text-muted">{t('consulting.note')}</p>
     </div>
   );
 }
 
-export function formatDate(iso: string, withTime = false) {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
-  });
-}
+export { formatDate } from '@/lib/dates';
 
 export function BackLink({ href, label }: { href: string; label: string }) {
   return (

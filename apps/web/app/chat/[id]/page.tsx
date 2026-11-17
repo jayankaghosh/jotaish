@@ -8,11 +8,14 @@ import { ChatSidebar } from '@/components/ChatSidebar';
 import { ChatView } from '@/components/ChatView';
 import { Spinner } from '@/components/ui';
 import { gql } from '@/lib/gql';
+import { useConversationTitle, useT } from '@/lib/i18n';
 import { MESSAGE_FIELDS } from '@/lib/fragments';
 import type { Conversation } from '@/lib/types';
 
 function ConversationScreen({ id }: { id: string }) {
   const prompt = useSearchParams().get('q');
+  const t = useT();
+  const titleOf = useConversationTitle();
   const [conversation, setConversation] = useState<Conversation | null | undefined>(undefined);
   const [sidebarKey, setSidebarKey] = useState(0);
 
@@ -28,12 +31,12 @@ function ConversationScreen({ id }: { id: string }) {
       <div className="hidden md:block"><ChatSidebar activeId={id} refreshKey={sidebarKey} /></div>
       <div className="card flex min-h-0 flex-col p-4 sm:p-6">
         {conversation === undefined && <Spinner />}
-        {conversation === null && <p className="text-muted">This conversation could not be found. <Link href="/chat" className="text-gold">Start a new one</Link>.</p>}
+        {conversation === null && <p className="text-muted">{t('chat.notFound')} <Link href="/chat" className="text-gold">{t('chat.startOne')}</Link></p>}
         {conversation && (
           <>
             <div className="mb-4 flex items-center justify-between border-b border-line pb-3">
-              <h1 className="truncate font-display text-2xl text-ink">{conversation.title}</h1>
-              <Link href="/chat" className="text-sm text-gold md:hidden">All chats</Link>
+              <h1 className="truncate font-display text-2xl text-ink">{titleOf(conversation.title)}</h1>
+              <Link href="/chat" className="text-sm text-gold md:hidden">{t('chat.all')}</Link>
             </div>
             <div className="min-h-0 flex-1">
               <ChatView conversationId={conversation.id} initialMessages={conversation.messages ?? []} initialPrompt={prompt}

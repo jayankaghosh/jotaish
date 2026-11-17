@@ -25,13 +25,23 @@ export class GqlError extends Error {
   }
 }
 
+// The API answers in this language (errors, greetings, reading titles).
+function langHeader(): Record<string, string> {
+  try {
+    const lang = localStorage.getItem('jotaish_lang');
+    return lang ? { 'X-Lang': lang } : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function gql<T = any>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const token = getToken();
   let res: Response;
   try {
     res = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: { 'Content-Type': 'application/json', ...langHeader(), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ query, variables }),
     });
   } catch {
@@ -57,6 +67,7 @@ export async function gqlStream<T = any>(query: string, variables: Record<string
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
+        ...langHeader(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ query, variables }),

@@ -1,18 +1,34 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { readdirSync } from 'node:fs';
 import PDFDocument from 'pdfkit';
 import { marked, type Token, type Tokens } from 'marked';
 import type { Reading } from '@prisma/client';
+import { tr, type Lang } from '../i18n';
 
 // DejaVu covers ₹ and the accented letters used in Sanskrit transliteration,
-// which the built-in PDF fonts can't print.
-const fontDir = path.join(path.dirname(createRequire(import.meta.url).resolve('dejavu-fonts-ttf/package.json')), 'ttf');
-const FONTS = {
+// which the built-in PDF fonts can't print, for English readings.
+const req = createRequire(import.meta.url);
+const fontDir = path.join(path.dirname(req.resolve('dejavu-fonts-ttf/package.json')), 'ttf');
+const LATIN = {
   body: path.join(fontDir, 'DejaVuSans.ttf'),
   bold: path.join(fontDir, 'DejaVuSans-Bold.ttf'),
   serif: path.join(fontDir, 'DejaVuSerif.ttf'),
   serifBold: path.join(fontDir, 'DejaVuSerif-Bold.ttf'),
 };
+
+// Noto fonts for Indian scripts; they also contain Latin letters, digits
+// and ₹, so mixed text prints from a single font.
+function noto(script: string) {
+  const dir = path.dirname(req.resolve(`@expo-google-fonts/noto-sans-${script}/package.json`));
+  const file = (weight: string) => path.join(dir, weight, readdirSync(path.join(dir, weight)).find((f) => f.endsWith('.ttf'))!);
+  const regular = file('400Regular');
+  const bold = file('700Bold');
+  return { body: regular, bold, serif: regular, serifBold: bold };
+}
+
+const SCRIPT: Partial<Record<Lang, string>> = { hi: 'devanagari', ml: 'malayalam', kn: 'kannada', bn: 'bengali' };
+const fontsFor = (lang: Lang) => (SCRIPT[lang] ? noto(SCRIPT[lang]!) : LATIN);
 
 const INK = '#2a2540';
 const MUTED = '#6f6a96';
@@ -31,6 +47,22 @@ const TYPE_LABEL: Record<string, string> = {
 
 type Doc = PDFKit.PDFDocument;
 
+// The shaper picks one script for a whole run of text, so a line that starts
+// in English and goes on in an Indian script ("Priya-ന്റെ ജാതകം") comes out
+// mis-joined. Split text into same-script runs and draw them as one line.
+const INDIC_RUN = /([\u0900-\u0DFF\u200C\u200D]+(?:[\s\u0964\u0965]+[\u0900-\u0DFF\u200C\u200D]+)*)/;
+const scriptRuns = (text: string) => text.split(INDIC_RUN).filter(Boolean);
+
+function write(doc: Doc, text: string, opts: PDFKit.Mixins.TextOptions = {}, at?: [number, number]) {
+  const runs = scriptRuns(text);
+  if (!runs.length) runs.push('');
+  runs.forEach((run, i) => {
+    const o = { ...opts, continued: i < runs.length - 1 || Boolean(opts.continued) };
+    if (i === 0 && at) doc.text(run, at[0], at[1], o);
+    else doc.text(run, o);
+  });
+}
+
 // Writes inline Markdown (bold, italic, code) as one flowing paragraph.
 function inline(doc: Doc, tokens: Token[] | undefined, fallback: string, opts: PDFKit.Mixins.TextOptions = {}) {
   const parts: { text: string; bold: boolean }[] = [];
@@ -46,7 +78,8 @@ function inline(doc: Doc, tokens: Token[] | undefined, fallback: string, opts: P
   walk(tokens ?? [], false);
   if (!parts.length) parts.push({ text: decode(fallback), bold: false });
   parts.forEach((p, i) => {
-    doc.font(p.bold ? 'bold' : 'body').text(p.text, { ...opts, continued: i < parts.length - 1 });
+    doc.font(p.bold ? 'bold' : 'body');
+    write(doc, p.text, { ...opts, continued: i < parts.length - 1 });
   });
 }
 
@@ -61,7 +94,7 @@ function markdown(doc: Doc, md: string) {
         const t = token as Tokens.Heading;
         doc.moveDown(t.depth <= 2 ? 0.8 : 0.5);
         doc.font('serifBold').fontSize(t.depth === 1 ? 18 : t.depth === 2 ? 15 : 12.5).fillColor(t.depth <= 2 ? NIGHT : GOLD);
-        doc.text(decode(t.text.replace(/\*\*/g, '')));
+        write(doc, decode(t.text.replace(/\*\*/g, '')));
         doc.moveDown(0.3).fontSize(10.5).fillColor(INK);
         break;
       }
@@ -90,7 +123,8 @@ function markdown(doc: Doc, md: string) {
       }
       case 'blockquote': {
         const t = token as Tokens.Blockquote;
-        doc.font('body').fontSize(10.5).fillColor(MUTED).text(decode(t.text), { indent: 12, lineGap: 2 });
+        doc.font('body').fontSize(10.5).fillColor(MUTED);
+        write(doc, decode(t.text), { indent: 12, lineGap: 2 });
         doc.moveDown(0.6).fillColor(INK);
         break;
       }
@@ -107,7 +141,8 @@ function markdown(doc: Doc, md: string) {
         break;
       default:
         if ('text' in token && typeof token.text === 'string' && token.text.trim()) {
-          doc.font('body').fontSize(10.5).fillColor(INK).text(decode(token.text));
+          doc.font('body').fontSize(10.5).fillColor(INK);
+          write(doc, decode(token.text));
           doc.moveDown(0.6);
         }
     }
@@ -132,7 +167,8 @@ function table(doc: Doc, rows: string[][]) {
     const y = doc.y;
     if (i === 0) doc.rect(left, y, width, h).fill('#f4f1ea');
     row.forEach((cell, j) => {
-      doc.font(i === 0 ? 'bold' : 'body').fontSize(9).fillColor(INK).text(cell, left + j * colWidth + 4, y + 4, { width: colWidth - 8 });
+      doc.font(i === 0 ? 'bold' : 'body').fontSize(9).fillColor(INK);
+      write(doc, cell, { width: colWidth - 8 }, [left + j * colWidth + 4, y + 4]);
     });
     doc.y = y + h;
     doc.moveTo(left, doc.y).lineTo(left + width, doc.y).lineWidth(0.3).strokeColor('#e3ddcf').stroke();
@@ -141,34 +177,40 @@ function table(doc: Doc, rows: string[][]) {
   doc.moveDown(0.8);
 }
 
-function facts(doc: Doc, reading: Reading) {
+function facts(doc: Doc, reading: Reading, lang: Lang) {
+  const t = (text: string, vars?: Record<string, string | number>) => tr(text, vars, lang);
   const data = reading.data as any;
   if (reading.type !== 'BIRTH_CHART' || !data?.planets) return;
   const rows: [string, string][] = [
-    ['Ascendant (Lagna)', data.ascendant ? `${data.ascendant.sign} (${data.ascendant.rashi}) ${data.ascendant.degree}` : 'Needs birth time'],
-    ['Moon sign (Rashi)', `${data.moonSign.sign} (${data.moonSign.rashi})`],
-    ['Birth star (Nakshatra)', `${data.janmaNakshatra.name}, pada ${data.janmaNakshatra.pada}`],
-    ['Sun sign', `${data.sunSign.sidereal} (Vedic) · ${data.sunSign.tropical} (Western)`],
+    [t('Ascendant (Lagna)'), data.ascendant ? `${t(data.ascendant.sign)} (${t(data.ascendant.rashi)}) ${data.ascendant.degree}` : t('Needs birth time')],
+    [t('Moon sign (Rashi)'), `${t(data.moonSign.sign)} (${t(data.moonSign.rashi)})`],
+    [t('Birth star (Nakshatra)'), t('{name}, pada {pada}', { name: t(data.janmaNakshatra.name), pada: data.janmaNakshatra.pada })],
+    [t('Sun sign'), t('{vedic} (Vedic) · {western} (Western)', { vedic: t(data.sunSign.sidereal), western: t(data.sunSign.tropical) })],
   ];
-  if (data.currentDasha) rows.push(['Current dasha', `${data.currentDasha.mahadasha} / ${data.currentDasha.antardasha} until ${data.currentDasha.until}`]);
-  table(doc, [['Key facts', ''], ...rows]);
+  if (data.currentDasha) {
+    rows.push([
+      t('Current dasha'),
+      t('{maha} / {antar} until {date}', { maha: t(data.currentDasha.mahadasha), antar: t(data.currentDasha.antardasha), date: data.currentDasha.until }),
+    ]);
+  }
+  table(doc, [[t('Key facts'), ''], ...rows]);
   table(doc, [
-    ['Planet', 'Sign', 'Degree', 'House', 'Nakshatra', 'Notes'],
+    [t('Planet'), t('Sign'), t('Degree'), t('House'), t('Nakshatra'), t('Notes')],
     ...data.planets.map((p: any) => [
-      p.planet,
-      p.sign,
+      t(p.planet),
+      t(p.sign),
       p.degree,
       String(p.house),
-      `${p.nakshatra} ${p.pada}`,
-      [p.dignity, p.retrograde && !['Rahu', 'Ketu'].includes(p.planet) ? 'retrograde' : null].filter(Boolean).join(', '),
+      `${t(p.nakshatra)} ${p.pada}`,
+      [p.dignity && t(p.dignity), p.retrograde && !['Rahu', 'Ketu'].includes(p.planet) ? t('retrograde') : null].filter(Boolean).join(', '),
     ]),
   ]);
 }
 
-export function readingPdf(reading: Reading, personName: string): Promise<Buffer> {
+export function readingPdf(reading: Reading, personName: string, lang: Lang = 'en'): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margins: { top: 56, bottom: 56, left: 56, right: 56 }, info: { Title: reading.title, Author: 'Jotaish' } });
-    for (const [name, file] of Object.entries(FONTS)) doc.registerFont(name, file);
+    for (const [name, file] of Object.entries(fontsFor(lang))) doc.registerFont(name, file);
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -176,20 +218,27 @@ export function readingPdf(reading: Reading, personName: string): Promise<Buffer
 
     doc.rect(0, 0, doc.page.width, 70).fill(NIGHT);
     doc.font('serif').fontSize(20).fillColor('#f3d79b').text('Jotaish', 56, 24);
-    doc.font('body').fontSize(9).fillColor('#a59fc9').text(TYPE_LABEL[reading.type] ?? 'Reading', 56, 30, { align: 'right' });
+    doc.font('body').fontSize(9).fillColor('#a59fc9').text(tr(TYPE_LABEL[reading.type] ?? 'Reading', undefined, lang), 56, 30, { align: 'right' });
 
     doc.y = 100;
     doc.x = 56;
-    doc.font('serifBold').fontSize(22).fillColor(NIGHT).text(reading.title);
-    doc.font('body').fontSize(9.5).fillColor(MUTED).text(
-      `Prepared for ${personName} on ${reading.createdAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+    doc.font('serifBold').fontSize(22).fillColor(NIGHT);
+    write(doc, reading.title);
+    doc.font('body').fontSize(9.5).fillColor(MUTED);
+    write(
+      doc,
+      tr('Prepared for {name} on {date}', {
+        name: personName,
+        date: reading.createdAt.toLocaleDateString(`${lang}-IN`, { day: 'numeric', month: 'long', year: 'numeric' }),
+      }, lang),
     );
     rule(doc);
-    facts(doc, reading);
+    facts(doc, reading, lang);
     markdown(doc, reading.interpretation);
 
     rule(doc);
-    doc.font('body').fontSize(8.5).fillColor(MUTED).text('Readings are for guidance and reflection. For medical, legal or financial decisions, please consult a professional.');
+    doc.font('body').fontSize(8.5).fillColor(MUTED);
+    write(doc, tr('Readings are for guidance and reflection. For medical, legal or financial decisions, please consult a professional.', undefined, lang));
     doc.end();
   });
 }

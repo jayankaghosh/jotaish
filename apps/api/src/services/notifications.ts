@@ -2,6 +2,7 @@ import type { PaymentRequest, User } from '@prisma/client';
 import { prisma } from '../lib/db';
 import { button, escapeHtml, layout, markdownToHtml, notifyAdmins, sendMail, siteUrl } from './mail';
 import { readingPdf } from './pdf';
+import { toLang, tr } from '../i18n';
 
 const first = (name: string) => escapeHtml(name.split(' ')[0]);
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
@@ -23,25 +24,34 @@ const READING_NOUN: Record<string, string> = {
   DREAM: 'dream interpretation',
 };
 
+// Customer emails go out in the language the person chose; admin emails stay
+// in English.
+const strong = (text: string) => `<strong>${escapeHtml(text)}</strong>`;
+const para = (text: string) => `<p>${text}</p>`;
+
 export function emailReading(readingId: string) {
   background(async () => {
     const reading = await prisma.reading.findUnique({ where: { id: readingId }, include: { user: true, profile: true } });
     if (!reading) return;
-    const noun = READING_NOUN[reading.type] ?? 'reading';
-    const pdf = await readingPdf(reading, reading.profile?.name ?? reading.user.name);
-    const file = `${reading.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'reading'}.pdf`;
+    const lang = toLang(reading.user.language);
+    const t = (text: string, vars?: Record<string, string | number>) => tr(text, vars, lang);
+    const noun = t(READING_NOUN[reading.type] ?? 'reading');
+    const pdf = await readingPdf(reading, reading.profile?.name ?? reading.user.name, lang);
+    // Letters from any script are fine in file names; only drop punctuation.
+    const file = `${reading.title.replace(/[^\p{L}\p{M}\p{N}\s-]/gu, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'reading'}.pdf`;
     await sendMail({
       to: reading.user.email,
       userId: reading.userId,
       kind: 'reading',
-      subject: `Your ${noun} is ready: ${reading.title}`,
+      subject: t('Your {noun} is ready: {title}', { noun, title: reading.title }),
       attachments: [{ filename: file, content: pdf, contentType: 'application/pdf' }],
       html: layout(
-        `Your ${noun} is ready`,
-        `<p>Namaste ${first(reading.user.name)},</p>
-<p>Your ${noun} <strong>${escapeHtml(reading.title)}</strong> has been prepared. The full reading is attached as a PDF so you can keep it, print it or share it with family.</p>
-<p>It's also saved in your account, where you can ask Jyotaish any questions about it.</p>
-${button('Open my reading', siteUrl(`/readings/${reading.id}`))}`,
+        t('Your {noun} is ready', { noun }),
+        para(t('Namaste {name},', { name: first(reading.user.name) })) +
+          para(t('Your {noun} {title} has been prepared. The full reading is attached as a PDF so you can keep it, print it or share it with family.', { noun, title: strong(reading.title) })) +
+          para(t("It's also saved in your account, where you can ask Jyotaish any questions about it.")) +
+          button(t('Open my reading'), siteUrl(`/readings/${reading.id}`)),
+        lang,
       ),
     });
   });
@@ -61,16 +71,24 @@ ${button('Review in Payments', siteUrl('/admin/payments'))}`,
       ),
       image ? [{ filename: `payment-${payment.id}.${image[1].split('/')[1]}`, content: Buffer.from(image[2], 'base64'), contentType: image[1] }] : undefined,
     );
+    const lang = toLang(user.language);
+    const t = (text: string, vars?: Record<string, string | number>) => tr(text, vars, lang);
     await sendMail({
       to: user.email,
       userId: user.id,
       kind: 'payment',
-      subject: 'We received your payment details',
+      subject: t('We received your payment details'),
       html: layout(
-        'Thank you, we have your payment details',
-        `<p>Namaste ${first(user.name)},</p>
-<p>We've received your screenshot for <strong>${inr(payment.rupees)}</strong> (${credits(payment.credits)} credits). We'll check the payment and add the credits to your account, usually within a few hours. We'll email you as soon as it's done.</p>
-${button('See my payments', siteUrl('/credits'))}`,
+        t('Thank you, we have your payment details'),
+        para(t('Namaste {name},', { name: first(user.name) })) +
+          para(
+            t("We've received your screenshot for {amount} ({credits} credits). We'll check the payment and add the credits to your account, usually within a few hours. We'll email you as soon as it's done.", {
+              amount: strong(inr(payment.rupees)),
+              credits: credits(payment.credits),
+            }),
+          ) +
+          button(t('See my payments'), siteUrl('/credits')),
+        lang,
       ),
     });
   });
@@ -79,27 +97,35 @@ ${button('See my payments', siteUrl('/credits'))}`,
 export function emailPaymentReviewed(payment: PaymentRequest) {
   background(async () => {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: payment.userId } });
+    const lang = toLang(user.language);
+    const t = (text: string, vars?: Record<string, string | number>) => tr(text, vars, lang);
+    const added = credits(payment.creditsAdded ?? payment.credits);
     const approved = payment.status === 'approved';
     await sendMail({
       to: user.email,
       userId: user.id,
       kind: 'payment',
-      subject: approved ? `${credits(payment.creditsAdded ?? payment.credits)} credits added to your account` : 'About your payment',
+      subject: approved ? t('{credits} credits added to your account', { credits: added }) : t('About your payment'),
       html: approved
         ? layout(
-            'Your credits have been added',
-            `<p>Namaste ${first(user.name)},</p>
-<p>Thank you for your payment of <strong>${inr(payment.rupees)}</strong>. We've added <strong>${credits(payment.creditsAdded ?? payment.credits)} credits</strong> to your account, ready to use right away.</p>
-${payment.note ? `<p>${escapeHtml(payment.note)}</p>` : ''}
-${button('Ask Jyotaish', siteUrl('/chat?new=1'))}`,
+            t('Your credits have been added'),
+            para(t('Namaste {name},', { name: first(user.name) })) +
+              para(t("Thank you for your payment of {amount}. We've added {credits} to your account, ready to use right away.", {
+                amount: strong(inr(payment.rupees)),
+                credits: strong(t('{credits} credits', { credits: added })),
+              })) +
+              (payment.note ? para(escapeHtml(payment.note)) : '') +
+              button(t('Ask Jyotaish'), siteUrl('/chat?new=1')),
+            lang,
           )
         : layout(
-            "We couldn't confirm your payment",
-            `<p>Namaste ${first(user.name)},</p>
-<p>We couldn't confirm your payment of <strong>${inr(payment.rupees)}</strong>, so no credits were added this time.</p>
-<p><strong>Reason:</strong> ${escapeHtml(payment.note ?? '')}</p>
-<p>If you think this is a mistake, please send the payment details again from the Credits page with a clear screenshot showing the amount and transaction ID.</p>
-${button('Go to Credits', siteUrl('/credits'))}`,
+            t("We couldn't confirm your payment"),
+            para(t('Namaste {name},', { name: first(user.name) })) +
+              para(t("We couldn't confirm your payment of {amount}, so no credits were added this time.", { amount: strong(inr(payment.rupees)) })) +
+              para(`${strong(t('Reason:'))} ${escapeHtml(payment.note ?? '')}`) +
+              para(t('If you think this is a mistake, please send the payment details again from the Credits page with a clear screenshot showing the amount and transaction ID.')) +
+              button(t('Go to Credits'), siteUrl('/credits')),
+            lang,
           ),
     });
   });
@@ -118,18 +144,21 @@ ${button('Open their profile', siteUrl(`/admin/users/${user.id}`))}`,
   );
 }
 
-export function verificationEmail(user: Pick<User, 'id' | 'name' | 'email'>, code: string) {
+export function verificationEmail(user: Pick<User, 'id' | 'name' | 'email' | 'language'>, code: string) {
+  const lang = toLang(user.language);
+  const t = (text: string, vars?: Record<string, string | number>) => tr(text, vars, lang);
   return sendMail({
     to: user.email,
     userId: user.id,
     kind: 'verification',
-    subject: `${code} is your Jotaish verification code`,
+    subject: t('{code} is your Jotaish verification code', { code }),
     html: layout(
-      'Confirm your email',
-      `<p>Namaste ${first(user.name)},</p>
-<p>Please enter this code in Jotaish to confirm your email address:</p>
-<p style="font-size:34px;letter-spacing:10px;font-weight:bold;color:#15132b;margin:24px 0">${code}</p>
-<p>The code works for 30 minutes. If you didn't create a Jotaish account, you can ignore this email.</p>`,
+      t('Confirm your email'),
+      para(t('Namaste {name},', { name: first(user.name) })) +
+        para(t('Please enter this code in Jotaish to confirm your email address:')) +
+        `<p style="font-size:34px;letter-spacing:10px;font-weight:bold;color:#15132b;margin:24px 0">${code}</p>` +
+        para(t("The code works for 30 minutes. If you didn't create a Jotaish account, you can ignore this email.")),
+      lang,
     ),
   });
 }

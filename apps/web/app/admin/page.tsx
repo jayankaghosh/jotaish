@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/AdminShell';
 import { ErrorNote, PageTitle, Spinner, formatDate } from '@/components/ui';
 import { gql } from '@/lib/gql';
-import { serviceByType } from '@/lib/services';
+import en from '@/lib/locales/en';
+import { serviceByType, serviceKey } from '@/lib/services';
 import type { ReadingType } from '@/lib/types';
 
 interface Stats {
@@ -57,7 +58,7 @@ export default function AdminOverview() {
               <ul className="space-y-3">
                 {stats.readingsByType.sort((a, b) => b.count - a.count).map((r) => (
                   <li key={r.key}>
-                    <div className="mb-1 flex justify-between text-sm"><span className="text-ink">{serviceByType(r.key as ReadingType).title}</span><span className="text-muted">{r.count}</span></div>
+                    <div className="mb-1 flex justify-between text-sm"><span className="text-ink">{en[serviceKey(serviceByType(r.key as ReadingType), 'title')]}</span><span className="text-muted">{r.count}</span></div>
                     <div className="h-2 rounded-full bg-line"><div className="h-2 rounded-full bg-gold" style={{ width: `${(r.count / Math.max(1, stats.readings)) * 100}%` }} /></div>
                   </li>
                 ))}

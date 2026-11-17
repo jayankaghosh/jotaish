@@ -2,6 +2,7 @@ import { prisma } from '../lib/db';
 import { env } from '../lib/env';
 import { getApiKey, getModels, getTemperature, type AiTask } from './settings';
 import { chargeOverflow } from '../services/limits';
+import { tr } from '../i18n';
 
 export type ContentPart =
   | { type: 'text'; text: string }
@@ -35,7 +36,7 @@ export class AiError extends Error {
 
 export class AiNotConfiguredError extends AiError {
   constructor() {
-    super('Readings are not available right now. Please try again a little later.', 'No OpenRouter API key is set.');
+    super(tr('Readings are not available right now. Please try again a little later.'), 'No OpenRouter API key is set.');
   }
 }
 
@@ -104,7 +105,7 @@ export async function complete(opts: CompletionOptions): Promise<Completion> {
     };
   } catch (e) {
     error = (e as Error).message;
-    throw new AiError('Jotaish could not answer just now. Please try again in a moment.', error);
+    throw new AiError(tr('Jotaish could not answer just now. Please try again in a moment.'), error);
   } finally {
     const promptTokens = usage.prompt_tokens ?? 0;
     const completionTokens = usage.completion_tokens ?? 0;

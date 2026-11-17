@@ -24,6 +24,7 @@ export interface User {
   profiles: BirthProfile[];
   readingCount: number;
   conversationCount: number;
+  language?: string;
   emailVerified?: boolean;
   needsVerification?: boolean;
   creditLimit?: number | null;

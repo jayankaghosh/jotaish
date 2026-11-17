@@ -27,6 +27,8 @@ export const typeDefs = /* GraphQL */ `
     profiles: [BirthProfile!]!
     readingCount: Int!
     conversationCount: Int!
+    # en, hi, ml, kn or bn
+    language: String!
     emailVerified: Boolean!
     # True when this person must enter the emailed code before continuing.
     needsVerification: Boolean!
@@ -305,6 +307,8 @@ export const typeDefs = /* GraphQL */ `
     name: String!
     email: String!
     password: String!
+    # en, hi, ml, kn or bn
+    language: String
   }
 
   input ProfileInput {
@@ -335,6 +339,8 @@ export const typeDefs = /* GraphQL */ `
     hand: String
     dream: String
     feeling: String
+    # north, south or east Indian tradition (Kundli and Vedic horoscopes)
+    region: String
   }
 
   input ModelSettingInput {
@@ -425,7 +431,7 @@ export const typeDefs = /* GraphQL */ `
     verifyEmail(email: String!, code: String!): AuthPayload!
     # Emails a new code (at most once a minute). Always returns true.
     resendVerificationCode(email: String!): Boolean!
-    updateMe(name: String): User!
+    updateMe(name: String, language: String): User!
     changePassword(current: String!, next: String!): Boolean!
     saveProfile(input: ProfileInput!): BirthProfile!
     deleteProfile(id: ID!): Boolean!

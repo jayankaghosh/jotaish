@@ -4,6 +4,7 @@ import { GraphQLError } from 'graphql';
 import { prisma } from '../lib/db';
 import { env } from '../lib/env';
 import { userError } from '../lib/auth';
+import { tr } from '../i18n';
 import { verificationRequired } from './mail';
 import { verificationEmail } from './notifications';
 
@@ -45,7 +46,7 @@ export async function sendCode(user: User): Promise<boolean> {
 }
 
 export function notVerifiedError(email: string) {
-  return new GraphQLError(`Please confirm your email first. We've sent a 6-digit code to ${email}.`, {
+  return new GraphQLError(tr("Please confirm your email first. We've sent a 6-digit code to {email}.", { email }), {
     extensions: { code: 'EMAIL_NOT_VERIFIED', email },
   });
 }

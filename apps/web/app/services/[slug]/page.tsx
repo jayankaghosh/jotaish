@@ -8,16 +8,21 @@ import { Shell } from '@/components/Shell';
 import { PersonPicker } from '@/components/PersonPicker';
 import { BackLink, Consulting, ErrorNote, Tip } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { OutOfAllowance, isOutOfAllowance, usageLine } from '@/components/UsageNote';
+import { OutOfAllowance, isOutOfAllowance, useUsageLine } from '@/components/UsageNote';
 import { gql } from '@/lib/gql';
+import { useI18n, useT, type MessageKey } from '@/lib/i18n';
 import { photoToDataUrl } from '@/lib/image';
-import { ZODIAC, serviceBySlug, type Service } from '@/lib/services';
+import { preferredRegion, rememberRegion } from '@/lib/region';
+import type { ChartStyle } from '@/components/charts';
+import { ZODIAC, serviceBySlug, serviceKey, type Service } from '@/lib/services';
 import type { BirthProfile } from '@/lib/types';
 
 export default function ServicePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const service = serviceBySlug(slug);
   const router = useRouter();
+  const t = useT();
+  const usageLine = useUsageLine();
   const { user, refresh } = useAuth();
   const [profiles, setProfiles] = useState<BirthProfile[]>([]);
   const [busy, setBusy] = useState(false);
@@ -30,7 +35,7 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
   if (!service) {
     return (
       <Shell>
-        <p className="text-muted">That reading does not exist. <Link href="/dashboard" className="text-gold">Go back home</Link>.</p>
+        <p className="text-muted">{t('services.notFound')} <Link href="/dashboard" className="text-gold">{t('services.goHome')}</Link></p>
       </Shell>
     );
   }
@@ -56,20 +61,20 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
   const Icon = service.icon;
   return (
     <Shell>
-      <BackLink href="/dashboard" label="All readings" />
+      <BackLink href="/dashboard" label={t('services.allReadings')} />
       <div className="mx-auto max-w-3xl">
         <div className="mb-8 flex items-start gap-4">
           <div className="rounded-2xl bg-gold/15 p-3 text-gold"><Icon size={28} /></div>
           <div>
-            <h1 className="font-display text-4xl text-ink">{service.title}</h1>
-            <p className="mt-2 text-muted">{service.description}</p>
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-faint"><Clock size={14} /> {service.time}. Your reading is saved to your profile automatically.</p>
+            <h1 className="font-display text-4xl text-ink">{t(serviceKey(service, 'title'))}</h1>
+            <p className="mt-2 text-muted">{t(serviceKey(service, 'description'))}</p>
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-faint"><Clock size={14} /> {t('services.timeSaved', { time: t(serviceKey(service, 'time')) })}</p>
             {usageLine(user?.usage) && <p className="mt-1 text-xs text-muted">{usageLine(user?.usage)}</p>}
           </div>
         </div>
 
         {busy ? (
-          <Consulting />
+          <Consulting kind={service.slug} />
         ) : isOutOfAllowance(user?.usage) ? (
           <OutOfAllowance usage={user!.usage!} />
         ) : (
@@ -80,9 +85,9 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
         )}
 
         {!busy && (
-          <Link href={`/chat?new=1&q=${encodeURIComponent(service.askPrompt)}`} className="mt-6 flex items-center gap-3 rounded-2xl border border-line p-4 text-sm text-muted hover:border-gold/40 hover:text-ink">
+          <Link href={`/chat?new=1&q=${encodeURIComponent(t(serviceKey(service, 'ask')))}`} className="mt-6 flex items-center gap-3 rounded-2xl border border-line p-4 text-sm text-muted hover:border-gold/40 hover:text-ink">
             <MessageCircle size={18} className="text-gold" />
-            Prefer to talk it through? Ask Jyotaish, who will guide you step by step.
+            {t('services.talkInstead')}
           </Link>
         )}
       </div>
@@ -142,19 +147,45 @@ function Submit({ disabled, children }: { disabled: boolean; children: ReactNode
 
 const selfId = (profiles: BirthProfile[]) => profiles.find((p) => p.relation === 'self')?.id ?? profiles[0]?.id ?? null;
 
+// North, South or East Indian tradition: the chart drawing, terms and remedies.
+function useRegion() {
+  const { lang } = useI18n();
+  const [region, setRegion] = useState<ChartStyle>('north');
+  useEffect(() => setRegion(preferredRegion(lang)), [lang]);
+  return [region, (r: ChartStyle) => { setRegion(r); rememberRegion(r); }] as const;
+}
+
+function RegionPicker({ value, onChange }: { value: ChartStyle; onChange: (r: ChartStyle) => void }) {
+  const t = useT();
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      {(['north', 'south', 'east'] as const).map((r) => (
+        <Choice key={r} active={value === r} onClick={() => onChange(r)} title={t(`region.${r}`)} body={t(`region.${r}.body`)} />
+      ))}
+    </div>
+  );
+}
+
 function KundliForm({ profiles, onAdded, onSubmit }: FormProps) {
+  const t = useT();
   const [profileId, setProfileId] = useState<string | null>(selfId(profiles));
+  const [region, setRegion] = useRegion();
   useEffect(() => {
     if (!profileId) setProfileId(selfId(profiles));
   }, [profiles, profileId]);
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ profileId }); }}>
-      <Step n={1} title="Whose Kundli should we prepare?" hint={profiles.length ? 'Choose a person, or add someone new.' : "Let's add your birth details first."}>
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ profileId, region }); }}>
+      <Step n={1} title={t('kundli.whose')} hint={profiles.length ? t('kundli.whoseHint') : t('kundli.addFirst')}>
         <PersonPicker profiles={profiles} value={profileId} onChange={setProfileId} onAdded={onAdded} />
       </Step>
       {profileId && (
-        <Step n={2} title="Prepare the chart" hint="We calculate exact planetary positions, then write your full report.">
-          <Submit disabled={!profileId}>Prepare Kundli</Submit>
+        <Step n={2} title={t('region.title')} hint={t('region.hintKundli')}>
+          <RegionPicker value={region} onChange={setRegion} />
+        </Step>
+      )}
+      {profileId && (
+        <Step n={3} title={t('kundli.prepareTitle')} hint={t('kundli.prepareHint')}>
+          <Submit disabled={!profileId}>{t('kundli.submit')}</Submit>
         </Step>
       )}
     </form>
@@ -162,49 +193,57 @@ function KundliForm({ profiles, onAdded, onSubmit }: FormProps) {
 }
 
 function HoroscopeForm({ profiles, onAdded, onSubmit }: FormProps) {
+  const { t, term } = useI18n();
   const [mode, setMode] = useState<'me' | 'sign'>(profiles.length ? 'me' : 'sign');
   const [profileId, setProfileId] = useState<string | null>(selfId(profiles));
   const [sign, setSign] = useState<string | null>(null);
   const [system, setSystem] = useState<'vedic' | 'western'>('vedic');
   const [period, setPeriod] = useState('today');
+  const [region, setRegion] = useRegion();
   const ready = mode === 'me' ? Boolean(profileId) : Boolean(sign);
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(mode === 'me' ? { profileId, system, period } : { sign, system, period }); }}>
-      <Step n={1} title="Personal or by sign?" hint="A personal horoscope uses your exact birth chart and is more accurate.">
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit(mode === 'me' ? { profileId, system, period, region } : { sign, system, period, region }); }}>
+      <Step n={1} title={t('horoscope.modeTitle')} hint={t('horoscope.modeHint')}>
         <div className="mb-4 grid gap-2 sm:grid-cols-2">
-          <Choice active={mode === 'me'} onClick={() => setMode('me')} title="From my birth details" body="Recommended. We work out your sign for you." />
-          <Choice active={mode === 'sign'} onClick={() => setMode('sign')} title="I know my sign" body="Quick, no birth details needed." />
+          <Choice active={mode === 'me'} onClick={() => setMode('me')} title={t('horoscope.fromDetails')} body={t('horoscope.fromDetailsBody')} />
+          <Choice active={mode === 'sign'} onClick={() => setMode('sign')} title={t('horoscope.knowSign')} body={t('horoscope.knowSignBody')} />
         </div>
         {mode === 'me' ? (
           <PersonPicker profiles={profiles} value={profileId} onChange={setProfileId} onAdded={onAdded} />
         ) : (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {ZODIAC.map((z) => (
-              <button key={z} type="button" onClick={() => setSign(z)} className={`rounded-xl border px-3 py-2.5 text-sm ${sign === z ? 'border-gold bg-gold/10 text-gold-soft' : 'border-line text-muted hover:text-ink'}`}>{z}</button>
+              <button key={z} type="button" onClick={() => setSign(z)} className={`rounded-xl border px-3 py-2.5 text-sm ${sign === z ? 'border-gold bg-gold/10 text-gold-soft' : 'border-line text-muted hover:text-ink'}`}>{term('sign', z)}</button>
             ))}
           </div>
         )}
       </Step>
-      <Step n={2} title="Which tradition?">
+      <Step n={2} title={t('horoscope.traditionTitle')}>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Choice active={system === 'vedic'} onClick={() => setSystem('vedic')} title="Vedic (Indian)" body={mode === 'me' ? 'Read from your Moon sign (rashi).' : 'Use your rashi (Moon sign).'} />
-          <Choice active={system === 'western'} onClick={() => setSystem('western')} title="Western" body={mode === 'me' ? 'Read from your Sun sign.' : 'Use your Sun sign, as in magazines.'} />
+          <Choice active={system === 'vedic'} onClick={() => setSystem('vedic')} title={t('horoscope.vedic')} body={t(mode === 'me' ? 'horoscope.vedicMe' : 'horoscope.vedicSign')} />
+          <Choice active={system === 'western'} onClick={() => setSystem('western')} title={t('horoscope.western')} body={t(mode === 'me' ? 'horoscope.westernMe' : 'horoscope.westernSign')} />
         </div>
       </Step>
-      <Step n={3} title="For which period?">
+      {system === 'vedic' && (
+        <Step n={3} title={t('region.title')} hint={t('region.hintHoroscope')}>
+          <RegionPicker value={region} onChange={setRegion} />
+        </Step>
+      )}
+      <Step n={system === 'vedic' ? 4 : 3} title={t('horoscope.periodTitle')}>
         <div className="flex flex-wrap gap-2">
-          {[['today', 'Today'], ['week', 'This week'], ['month', 'This month']].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setPeriod(k)} className={`chip px-4 py-2 text-sm ${period === k ? 'border-gold bg-gold/15 text-gold-soft' : 'hover:text-ink'}`}>{l}</button>
+          {(['today', 'week', 'month'] as const).map((k) => (
+            <button key={k} type="button" onClick={() => setPeriod(k)} className={`chip px-4 py-2 text-sm ${period === k ? 'border-gold bg-gold/15 text-gold-soft' : 'hover:text-ink'}`}>{t(`horoscope.period.${k}`)}</button>
           ))}
         </div>
       </Step>
-      <Submit disabled={!ready}>Read my horoscope</Submit>
+      <Submit disabled={!ready}>{t('horoscope.submit')}</Submit>
     </form>
   );
 }
 
 function MatchingForm({ profiles, onAdded, onSubmit }: FormProps) {
+  const t = useT();
   const [a, setA] = useState<string | null>(selfId(profiles));
   const [b, setB] = useState<string | null>(null);
   useEffect(() => {
@@ -212,105 +251,98 @@ function MatchingForm({ profiles, onAdded, onSubmit }: FormProps) {
   }, [profiles, a]);
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ profileId: a, profileB: b }); }}>
-      <Step n={1} title="First person" hint="Usually yourself.">
+      <Step n={1} title={t('matching.first')} hint={t('matching.firstHint')}>
         <PersonPicker profiles={profiles} value={a} onChange={setA} onAdded={onAdded} exclude={b} />
       </Step>
       {a && (
-        <Step n={2} title="Second person" hint="Your partner or the person you are considering. Their birth details are kept private to you.">
-          <PersonPicker profiles={profiles} value={b} onChange={setB} onAdded={onAdded} exclude={a} addLabel="Add their birth details" />
+        <Step n={2} title={t('matching.second')} hint={t('matching.secondHint')}>
+          <PersonPicker profiles={profiles} value={b} onChange={setB} onAdded={onAdded} exclude={a} addLabel={t('matching.addTheirs')} />
         </Step>
       )}
-      {a && b && <Submit disabled={false}>Check compatibility</Submit>}
+      {a && b && <Submit disabled={false}>{t('matching.submit')}</Submit>}
     </form>
   );
 }
 
-const EXAMPLE_QUESTIONS = [
-  'What do I need to know about my career right now?',
-  'Where is my relationship heading?',
-  'What is blocking me from moving forward?',
-  'What energy should I bring into this month?',
-];
-
-const SPREADS = [
-  { key: 'single', title: 'One card', body: 'A quick message for today.' },
-  { key: 'three', title: 'Past, present, future', body: 'The most popular. Good for most questions.' },
-  { key: 'relationship', title: 'Relationship', body: 'Five cards about you, them and the bond.' },
-  { key: 'celtic', title: 'Celtic cross', body: 'Ten cards for a deep look at a big question.' },
-];
+const EXAMPLE_QUESTIONS: MessageKey[] = ['tarot.example1', 'tarot.example2', 'tarot.example3', 'tarot.example4'];
+const SPREADS = ['single', 'three', 'relationship', 'celtic'] as const;
 
 function TarotForm({ onSubmit }: FormProps) {
+  const t = useT();
   const [question, setQuestion] = useState('');
   const [spread, setSpread] = useState('three');
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ question, spread }); }}>
-      <Step n={1} title="What would you like guidance on?" hint="Open questions ('what', 'how') work better than yes or no questions.">
-        <textarea className="input min-h-24" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Type your question, or pick one below" />
+      <Step n={1} title={t('tarot.questionTitle')} hint={t('tarot.questionHint')}>
+        <textarea className="input min-h-24" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder={t('tarot.questionPlaceholder')} />
         <div className="mt-3 flex flex-wrap gap-2">
-          {EXAMPLE_QUESTIONS.map((q) => (
-            <button key={q} type="button" className="chip hover:text-ink" onClick={() => setQuestion(q)}>{q}</button>
+          {EXAMPLE_QUESTIONS.map((k) => (
+            <button key={k} type="button" className="chip hover:text-ink" onClick={() => setQuestion(t(k))}>{t(k)}</button>
           ))}
         </div>
       </Step>
-      <Step n={2} title="Choose a spread">
+      <Step n={2} title={t('tarot.spreadTitle')}>
         <div className="grid gap-2 sm:grid-cols-2">
-          {SPREADS.map((s) => <Choice key={s.key} active={spread === s.key} onClick={() => setSpread(s.key)} title={s.title} body={s.body} />)}
+          {SPREADS.map((s) => <Choice key={s} active={spread === s} onClick={() => setSpread(s)} title={t(`tarot.spread.${s}`)} body={t(`tarot.spread.${s}.body`)} />)}
         </div>
       </Step>
-      <Step n={3} title="Take a calm breath" hint="Hold your question in mind for a moment, then draw your cards.">
-        <Submit disabled={false}>Shuffle and draw</Submit>
+      <Step n={3} title={t('tarot.breathTitle')} hint={t('tarot.breathHint')}>
+        <Submit disabled={false}>{t('tarot.submit')}</Submit>
       </Step>
     </form>
   );
 }
 
 function NumerologyForm({ profiles, onSubmit, userName }: FormProps) {
+  const t = useT();
   const self = profiles.find((p) => p.relation === 'self');
   const [fullName, setFullName] = useState(userName);
   const [birthDate, setBirthDate] = useState(self?.birthDate ?? '');
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ fullName, birthDate }); }}>
-      <Step n={1} title="Your full name" hint="Use the name you use most often, including middle name if you use it. Spelling matters in numerology.">
-        <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Priya Anand Sharma" />
+      <Step n={1} title={t('numerology.nameTitle')} hint={t('numerology.nameHint')}>
+        <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('numerology.namePlaceholder')} />
+        {fullName.trim() && !/[a-z]/i.test(fullName) && <p className="hint text-gold-soft">{t('numerology.englishLetters')}</p>}
       </Step>
-      <Step n={2} title="Your date of birth">
+      <Step n={2} title={t('numerology.dateTitle')}>
         <input type="date" className="input" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
-        {self && <p className="hint">Filled in from your birth details.</p>}
+        {self && <p className="hint">{t('numerology.filled')}</p>}
       </Step>
-      <Submit disabled={!fullName.trim() || !birthDate}>Reveal my numbers</Submit>
+      <Submit disabled={!/[a-z]/i.test(fullName) || !birthDate}>{t('numerology.submit')}</Submit>
     </form>
   );
 }
 
 function PalmForm({ onSubmit }: FormProps) {
+  const t = useT();
   const [hand, setHand] = useState<'right' | 'left'>('right');
   const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ hand, imageDataUrl: photo }); }}>
-      <Step n={1} title="Which hand?" hint="In palmistry, your dominant hand shows your present and what you've made of life; the other shows what you were born with.">
+      <Step n={1} title={t('palm.handTitle')} hint={t('palm.handHint')}>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Choice active={hand === 'right'} onClick={() => setHand('right')} title="Right hand" body="Most people write with this one." />
-          <Choice active={hand === 'left'} onClick={() => setHand('left')} title="Left hand" body="Choose this if you are left-handed." />
+          <Choice active={hand === 'right'} onClick={() => setHand('right')} title={t('palm.right')} body={t('palm.rightBody')} />
+          <Choice active={hand === 'left'} onClick={() => setHand('left')} title={t('palm.left')} body={t('palm.leftBody')} />
         </div>
       </Step>
-      <Step n={2} title="Take a clear photo">
+      <Step n={2} title={t('palm.photoTitle')}>
         <Tip>
           <ul className="list-disc space-y-1 pl-4">
-            <li>Open your palm flat, fingers slightly apart.</li>
-            <li>Use daylight or a bright lamp, no harsh shadows.</li>
-            <li>Fill the frame with your palm, wrist to fingertips.</li>
+            <li>{t('palm.tip1')}</li>
+            <li>{t('palm.tip2')}</li>
+            <li>{t('palm.tip3')}</li>
           </ul>
         </Tip>
         <label className="mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line p-8 text-center hover:border-gold/50">
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="Your palm" className="max-h-64 rounded-xl" />
+            <img src={photo} alt={t('palm.yourPalm')} className="max-h-64 rounded-xl" />
           ) : (
             <>
               <Camera className="text-gold" size={32} />
-              <span className="text-ink">Tap to take or choose a photo</span>
-              <span className="text-xs text-faint">JPG or PNG</span>
+              <span className="text-ink">{t('palm.tapPhoto')}</span>
+              <span className="text-xs text-faint">{t('palm.formats')}</span>
             </>
           )}
           <input
@@ -330,10 +362,10 @@ function PalmForm({ onSubmit }: FormProps) {
             }}
           />
         </label>
-        {photo && <p className="hint">Looks good? You can tap the photo to choose a different one.</p>}
+        {photo && <p className="hint">{t('palm.looksGood')}</p>}
         <div className="mt-3"><ErrorNote message={error} /></div>
       </Step>
-      <Submit disabled={!photo}>Read my palm</Submit>
+      <Submit disabled={!photo}>{t('palm.submit')}</Submit>
     </form>
   );
 }
@@ -341,22 +373,23 @@ function PalmForm({ onSubmit }: FormProps) {
 const FEELINGS = ['Peaceful', 'Happy', 'Confused', 'Anxious', 'Scared', 'Sad', 'Excited', 'Strange'];
 
 function DreamForm({ onSubmit }: FormProps) {
+  const { t, term } = useI18n();
   const [dream, setDream] = useState('');
   const [feeling, setFeeling] = useState<string | null>(null);
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ dream, feeling }); }}>
-      <Step n={1} title="Describe your dream" hint="Write whatever you remember, even fragments. These questions can help: Where were you? Who was there? What happened? What stood out?">
-        <textarea className="input min-h-40" value={dream} onChange={(e) => setDream(e.target.value)} placeholder="I was walking by a river at night, and a white snake…" />
-        <p className="hint">{dream.trim().length < 10 ? 'A sentence or two is enough to begin.' : 'Thank you. More detail gives a richer reading, but this is enough.'}</p>
+      <Step n={1} title={t('dream.describeTitle')} hint={t('dream.describeHint')}>
+        <textarea className="input min-h-40" value={dream} onChange={(e) => setDream(e.target.value)} placeholder={t('dream.placeholder')} />
+        <p className="hint">{dream.trim().length < 10 ? t('dream.short') : t('dream.enough')}</p>
       </Step>
-      <Step n={2} title="How did it feel?" hint="The feeling often matters as much as the images.">
+      <Step n={2} title={t('dream.feelTitle')} hint={t('dream.feelHint')}>
         <div className="flex flex-wrap gap-2">
           {FEELINGS.map((f) => (
-            <button key={f} type="button" onClick={() => setFeeling(feeling === f ? null : f)} className={`chip px-4 py-2 text-sm ${feeling === f ? 'border-gold bg-gold/15 text-gold-soft' : 'hover:text-ink'}`}>{f}</button>
+            <button key={f} type="button" onClick={() => setFeeling(feeling === f ? null : f)} className={`chip px-4 py-2 text-sm ${feeling === f ? 'border-gold bg-gold/15 text-gold-soft' : 'hover:text-ink'}`}>{term('feeling', f)}</button>
           ))}
         </div>
       </Step>
-      <Submit disabled={dream.trim().length < 10}>Interpret my dream</Submit>
+      <Submit disabled={dream.trim().length < 10}>{t('dream.submit')}</Submit>
     </form>
   );
 }

@@ -7,10 +7,12 @@ import { AuthCard } from '@/components/AuthCard';
 import { ErrorNote, Spinner } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { gql } from '@/lib/gql';
+import { useI18n } from '@/lib/i18n';
 
 export default function RegisterPage() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const { t, lang } = useI18n();
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -20,7 +22,7 @@ export default function RegisterPage() {
     setBusy(true);
     setError(null);
     try {
-      const { register } = await gql(`mutation($input: RegisterInput!) { register(input: $input) { token verificationRequired } }`, { input: form });
+      const { register } = await gql(`mutation($input: RegisterInput!) { register(input: $input) { token verificationRequired } }`, { input: { ...form, language: lang } });
       if (register.verificationRequired) {
         router.replace(`/verify?new=1&email=${encodeURIComponent(form.email.trim().toLowerCase())}`);
         return;
@@ -37,33 +39,33 @@ export default function RegisterPage() {
 
   return (
     <AuthCard
-      title="Create your free account"
-      subtitle="It takes less than a minute. Next, we'll help you set up your birth details."
-      footer={<>Already have an account? <Link href="/login" className="text-gold hover:underline">Sign in</Link></>}
+      title={t('auth.registerTitle')}
+      subtitle={t('auth.registerSubtitle')}
+      footer={<>{t('auth.haveAccount')} <Link href="/login" className="text-gold hover:underline">{t('auth.signIn')}</Link></>}
     >
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="label" htmlFor="name">Your name</label>
-          <input id="name" className="input" value={form.name} onChange={set('name')} required autoComplete="name" placeholder="e.g. Priya Sharma" />
-          <p className="hint">This is how Jyotaish will greet you.</p>
+          <label className="label" htmlFor="name">{t('auth.yourName')}</label>
+          <input id="name" className="input" value={form.name} onChange={set('name')} required autoComplete="name" placeholder={t('auth.namePlaceholder')} />
+          <p className="hint">{t('auth.nameHint')}</p>
         </div>
         <div>
-          <label className="label" htmlFor="email">Email</label>
+          <label className="label" htmlFor="email">{t('auth.email')}</label>
           <input id="email" type="email" className="input" value={form.email} onChange={set('email')} required autoComplete="email" />
         </div>
         <div>
-          <label className="label" htmlFor="password">Password</label>
+          <label className="label" htmlFor="password">{t('auth.password')}</label>
           <input id="password" type="password" className="input" value={form.password} onChange={set('password')} required minLength={8} autoComplete="new-password" />
-          <p className="hint">At least 8 characters.</p>
+          <p className="hint">{t('auth.passwordHint')}</p>
         </div>
         <ErrorNote message={error} />
         <button className="btn-primary w-full py-3" disabled={busy}>
-          {busy ? <Spinner /> : 'Create account'}
+          {busy ? <Spinner /> : t('auth.createAccount')}
         </button>
         <p className="text-center text-xs text-faint">
-          By creating an account you agree to our{' '}
-          <Link href="/terms" className="underline hover:text-muted">Terms of service</Link> and{' '}
-          <Link href="/privacy" className="underline hover:text-muted">Privacy policy</Link>. Your details and readings are private to you.
+          {t('auth.agreePrefix')}{' '}
+          <Link href="/terms" className="underline hover:text-muted">{t('footer.terms')}</Link> {t('auth.agreeAnd')}{' '}
+          <Link href="/privacy" className="underline hover:text-muted">{t('footer.privacy')}</Link>{t('auth.agreeSuffix')}
         </p>
       </form>
     </AuthCard>

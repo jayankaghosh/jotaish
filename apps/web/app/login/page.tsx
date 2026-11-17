@@ -7,11 +7,13 @@ import { AuthCard } from '@/components/AuthCard';
 import { ErrorNote, Spinner } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { GqlError, gql } from '@/lib/gql';
+import { useT } from '@/lib/i18n';
 
 function LoginForm() {
   const router = useRouter();
   const next = useSearchParams().get('next');
   const { signIn } = useAuth();
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -38,22 +40,22 @@ function LoginForm() {
 
   return (
     <AuthCard
-      title="Welcome back"
-      subtitle="Sign in to see your readings and continue your conversations."
-      footer={<>New to Jotaish? <Link href="/register" className="text-gold hover:underline">Create a free account</Link></>}
+      title={t('auth.loginTitle')}
+      subtitle={t('auth.loginSubtitle')}
+      footer={<>{t('auth.newHere')} <Link href="/register" className="text-gold hover:underline">{t('auth.createFree')}</Link></>}
     >
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="label" htmlFor="email">Email</label>
+          <label className="label" htmlFor="email">{t('auth.email')}</label>
           <input id="email" type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </div>
         <div>
-          <label className="label" htmlFor="password">Password</label>
+          <label className="label" htmlFor="password">{t('auth.password')}</label>
           <input id="password" type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
         </div>
         <ErrorNote message={error} />
         <button className="btn-primary w-full py-3" disabled={busy}>
-          {busy ? <Spinner /> : 'Sign in'}
+          {busy ? <Spinner /> : t('auth.signIn')}
         </button>
       </form>
     </AuthCard>

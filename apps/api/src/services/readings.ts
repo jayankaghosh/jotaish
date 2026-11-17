@@ -2,7 +2,8 @@ import type { BirthProfile, Prisma, ReadingType } from '@prisma/client';
 import { prisma } from '../lib/db';
 import { userError } from '../lib/auth';
 import { complete, type ChatMessage, type ContentPart } from '../ai/openrouter';
-import { REPORT_PROMPTS } from '../ai/prompts';
+import { REPORT_PROMPTS, languageInstruction, regionInstruction, toRegion, type Region } from '../ai/prompts';
+import { currentLang, tr } from '../i18n';
 import { computeBirthChart, currentTransits, SIGNS } from '../astro/vedic';
 import { drawSpread, SPREADS } from '../astro/tarot';
 import { computeNumerology } from '../astro/numerology';
@@ -20,6 +21,12 @@ async function profileFor(userId: string, profileId?: string | null): Promise<Bi
     : await prisma.birthProfile.findFirst({ where: { userId, relation: 'self' }, orderBy: { createdAt: 'asc' } });
   if (!profile) throw userError('Please add birth details first, so the chart can be calculated.');
   return profile;
+}
+
+// Without a choice, guess the tradition from the language being used.
+function defaultRegion(): Region {
+  const lang = currentLang();
+  return lang === 'ml' || lang === 'kn' ? 'south' : lang === 'bn' ? 'east' : 'north';
 }
 
 function chartFor(profile: BirthProfile) {
@@ -69,13 +76,13 @@ async function save(
 const REPORT_TOKENS: Partial<Record<keyof typeof REPORT_PROMPTS, number>> = { birth_chart: 12000, compatibility: 8000 };
 const MAX_CONTINUATIONS = 2;
 
-async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image?: string) {
+async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image?: string, region?: Region) {
   const text = `Here is the data for this reading as JSON:\n\n${JSON.stringify(payload, null, 1)}`;
   const content: string | ContentPart[] = image
     ? [{ type: 'text', text }, { type: 'image_url', image_url: { url: image } }]
     : text;
   const messages: ChatMessage[] = [
-    { role: 'system', content: REPORT_PROMPTS[task] },
+    { role: 'system', content: REPORT_PROMPTS[task] + (region ? regionInstruction(region) : '') + languageInstruction(currentLang()) },
     { role: 'user', content },
   ];
   const maxTokens = REPORT_TOKENS[task] ?? 6000;
@@ -103,16 +110,17 @@ async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, pa
   return { model: reply.model, content: report };
 }
 
-export async function createBirthChart(owner: Owner, profileId?: string | null) {
+export async function createBirthChart(owner: Owner, profileId?: string | null, regionInput?: string | null) {
   const profile = await profileFor(owner.userId, profileId);
+  const region = toRegion(regionInput ?? defaultRegion());
   const chart = chartFor(profile);
-  const report = await writeReport('birth_chart', owner.userId, { person: birthSummary(profile), chart });
-  return save(owner, 'BIRTH_CHART', `Kundli for ${profile.name}`, birthSummary(profile), chart as any, report.content, report.model, profile.id);
+  const report = await writeReport('birth_chart', owner.userId, { person: birthSummary(profile), chart }, undefined, region);
+  return save(owner, 'BIRTH_CHART', tr('Kundli for {name}', { name: profile.name }), { ...birthSummary(profile), region }, chart as any, report.content, report.model, profile.id);
 }
 
 export async function createHoroscope(
   owner: Owner,
-  args: { profileId?: string | null; sign?: string | null; period?: string | null; system?: string | null },
+  args: { profileId?: string | null; sign?: string | null; period?: string | null; system?: string | null; region?: string | null },
 ) {
   const period = ['today', 'week', 'month'].includes(args.period ?? '') ? args.period! : 'today';
   const system = args.system === 'western' ? 'western' : 'vedic';
@@ -132,13 +140,15 @@ export async function createHoroscope(
   const today = new Date().toISOString().slice(0, 10);
   const transits = currentTransits();
   const payload = { sign, system, period, date: today, transits };
-  const report = await writeReport('horoscope', owner.userId, payload);
-  const label = period === 'today' ? 'Today' : period === 'week' ? 'This week' : 'This month';
+  const region = system === 'vedic' ? toRegion(args.region ?? defaultRegion()) : undefined;
+  const report = await writeReport('horoscope', owner.userId, payload, undefined, region);
+  const label = tr(period === 'today' ? 'Today' : period === 'week' ? 'This week' : 'This month');
+  const signLabel = tr(system === 'vedic' ? '{sign} (Moon sign)' : '{sign} (Sun sign)', { sign: tr(sign) });
   return save(
     owner,
     'HOROSCOPE',
-    `${label}: ${sign} (${system === 'vedic' ? 'Moon sign' : 'Sun sign'})${person ? ` for ${person}` : ''}`,
-    { sign, system, period, date: today },
+    person ? tr('{period}: {sign} for {name}', { period: label, sign: signLabel, name: person }) : `${label}: ${signLabel}`,
+    { sign, system, period, date: today, region: region ?? null },
     payload as any,
     report.content,
     report.model,
@@ -160,23 +170,25 @@ export async function createCompatibility(owner: Owner, profileA: string, profil
   });
   const data = { personA: { ...birthSummary(a), chart: pick(chartFor(a)) }, personB: { ...birthSummary(b), chart: pick(chartFor(b)) } };
   const report = await writeReport('compatibility', owner.userId, data);
-  return save(owner, 'COMPATIBILITY', `${a.name} & ${b.name}: compatibility`, { profileA: a.id, profileB: b.id }, data as any, report.content, report.model, a.id);
+  return save(owner, 'COMPATIBILITY', tr('{a} & {b}: compatibility', { a: a.name, b: b.name }), { profileA: a.id, profileB: b.id }, data as any, report.content, report.model, a.id);
 }
 
 export async function createTarot(owner: Owner, args: { question?: string | null; spread?: string | null }) {
   const spread = args.spread && SPREADS[args.spread] ? args.spread : 'three';
-  const question = args.question?.trim() || 'General guidance for the path ahead';
+  const question = args.question?.trim() || tr('General guidance for the path ahead');
   const cards = drawSpread(spread);
   const report = await writeReport('tarot', owner.userId, { question, spread: SPREADS[spread].label, cards });
-  return save(owner, 'TAROT', `Tarot: ${question.slice(0, 60)}`, { question, spread }, { spread: SPREADS[spread].label, cards }, report.content, report.model);
+  return save(owner, 'TAROT', tr('Tarot: {question}', { question: question.slice(0, 60) }), { question, spread }, { spread: SPREADS[spread].label, cards }, report.content, report.model);
 }
 
 export async function createNumerology(owner: Owner, args: { fullName: string; birthDate: string }) {
   if (!args.fullName?.trim()) throw userError('Please enter the full name as it is usually written.');
+  // Numerology counts the letters A to Z, so a name in another script gives nothing.
+  if (!/[a-z]/i.test(args.fullName)) throw userError('Please write the name in English letters, as numerology counts the letters A to Z.');
   if (!isValidDate(args.birthDate)) throw userError('Please enter the date of birth as YYYY-MM-DD.');
   const numbers = computeNumerology(args.fullName.trim(), args.birthDate);
   const report = await writeReport('numerology', owner.userId, numbers);
-  return save(owner, 'NUMEROLOGY', `Numerology for ${args.fullName.trim()}`, args, numbers, report.content, report.model);
+  return save(owner, 'NUMEROLOGY', tr('Numerology for {name}', { name: args.fullName.trim() }), args, numbers, report.content, report.model);
 }
 
 export async function createPalm(owner: Owner, args: { imageDataUrl: string; hand?: string | null; question?: string | null }) {
@@ -185,12 +197,12 @@ export async function createPalm(owner: Owner, args: { imageDataUrl: string; han
   const hand = args.hand === 'left' ? 'left' : 'right';
   const payload = { hand, question: args.question ?? null };
   const report = await writeReport('palm', owner.userId, payload, args.imageDataUrl);
-  return save(owner, 'PALM', `Palm reading (${hand} hand)`, { ...payload, imageDataUrl: args.imageDataUrl }, payload, report.content, report.model);
+  return save(owner, 'PALM', tr(hand === 'left' ? 'Palm reading (left hand)' : 'Palm reading (right hand)'), { ...payload, imageDataUrl: args.imageDataUrl }, payload, report.content, report.model);
 }
 
 export async function createDream(owner: Owner, args: { dream: string; feeling?: string | null }) {
   if (!args.dream || args.dream.trim().length < 10) throw userError('Please describe the dream in a sentence or two.');
   const payload = { dream: args.dream.trim(), feeling: args.feeling ?? null };
   const report = await writeReport('dream', owner.userId, payload);
-  return save(owner, 'DREAM', `Dream: ${payload.dream.slice(0, 60)}`, payload, payload, report.content, report.model);
+  return save(owner, 'DREAM', tr('Dream: {dream}', { dream: payload.dream.slice(0, 60) }), payload, payload, report.content, report.model);
 }

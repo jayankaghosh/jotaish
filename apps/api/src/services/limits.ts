@@ -1,6 +1,7 @@
 import type { User } from '@prisma/client';
 import { GraphQLError } from 'graphql';
 import { prisma } from '../lib/db';
+import { currentLang, tr } from '../i18n';
 import { emailCreditsExhausted } from './notifications';
 
 // Allowances are measured in credits so heavier models and longer readings
@@ -97,13 +98,13 @@ export async function usageFor(user: UsageUser): Promise<Usage> {
 }
 
 function limitMessage(usage: Usage) {
-  const buy = 'You can buy more credits from the Credits page to continue right away.';
-  if (usage.period === 'day') return `You've used today's free allowance. It refreshes tomorrow. ${buy}`;
+  const buy = tr('You can buy more credits from the Credits page to continue right away.');
+  if (usage.period === 'day') return `${tr("You've used today's free allowance. It refreshes tomorrow.")} ${buy}`;
   if (usage.period === 'month') {
-    const when = usage.resetsAt!.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' });
-    return `You've used this month's free allowance. It refreshes on ${when}. ${buy}`;
+    const when = usage.resetsAt!.toLocaleDateString(`${currentLang()}-IN`, { day: 'numeric', month: 'long', timeZone: 'UTC' });
+    return `${tr("You've used this month's free allowance. It refreshes on {date}.", { date: when })} ${buy}`;
   }
-  return `You've used the free allowance included with your account. ${buy}`;
+  return `${tr("You've used the free allowance included with your account.")} ${buy}`;
 }
 
 export function isOutOfCredits(usage: Usage) {

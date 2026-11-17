@@ -6,6 +6,7 @@ import { decrypt, encrypt } from '../lib/crypto';
 import { env } from '../lib/env';
 import { userError } from '../lib/auth';
 import { sendWithGmail } from './gmail';
+import { tr, type Lang } from '../i18n';
 
 export interface MailSettings {
   // smtp, or gmail to send through the Gmail API over HTTPS (useful where
@@ -205,17 +206,17 @@ export function button(label: string, href: string) {
 }
 
 // One simple, light layout that reads well in every mail app.
-export function layout(heading: string, body: string) {
+export function layout(heading: string, body: string, lang: Lang = 'en') {
   return `<!doctype html><html><body style="margin:0;background:#f4f1ea;font-family:Georgia,'Times New Roman',serif;color:#2a2540">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ea;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden">
 <tr><td style="background:#15132b;padding:22px 32px;color:#f3d79b;font-size:24px;letter-spacing:1px">&#9790; Jotaish</td></tr>
 <tr><td style="padding:32px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2a2540">
-<h1 style="font-family:Georgia,serif;font-weight:normal;font-size:26px;margin:0 0 16px;color:#15132b">${escape(heading)}</h1>
+<h1 style="font-family:Georgia,'Noto Sans Devanagari','Noto Sans Malayalam','Noto Sans Kannada','Noto Sans Bengali',serif;font-weight:normal;font-size:26px;margin:0 0 16px;color:#15132b">${escape(heading)}</h1>
 ${body}
 </td></tr>
 <tr><td style="padding:18px 32px;background:#faf8f3;color:#8a849f;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5">
-Jotaish readings are for guidance and reflection. For medical, legal or financial decisions, please consult a professional.
+${escape(tr('Jotaish readings are for guidance and reflection. For medical, legal or financial decisions, please consult a professional.', undefined, lang))}
 </td></tr></table></td></tr></table></body></html>`;
 }
 

@@ -8,23 +8,17 @@ import { useAuth } from '@/lib/auth';
 import { photoToDataUrl } from '@/lib/image';
 import { MESSAGE_FIELDS } from '@/lib/fragments';
 import { serviceByType } from '@/lib/services';
+import { useT, type MessageKey } from '@/lib/i18n';
 import type { Message, ReadingType } from '@/lib/types';
 import { ErrorNote, Markdown } from './ui';
-import { OutOfAllowance, isOutOfAllowance, usageLine } from './UsageNote';
+import { OutOfAllowance, isOutOfAllowance, useUsageLine } from './UsageNote';
 
-const STARTERS = [
-  'Prepare my Kundli and explain it simply',
-  'What does this year hold for my career?',
-  'Draw a tarot card for me today',
-  'What do my numbers say about me?',
-  'I want to check compatibility with someone',
-  'I had a strange dream last night',
-];
-
-const THINKING = ['Jyotaish is reflecting…', 'Looking at the planets…', 'Preparing your reading…', 'Writing it up for you…'];
+const STARTERS: MessageKey[] = ['chat.starter1', 'chat.starter2', 'chat.starter3', 'chat.starter4', 'chat.starter5', 'chat.starter6'];
+const THINKING: MessageKey[] = ['chat.thinking1', 'chat.thinking2', 'chat.thinking3', 'chat.thinking4'];
 
 // A tool result as a card that links to the saved reading.
 function ReadingCard({ message, readingHref }: { message: Message; readingHref: string }) {
+  const t = useT();
   let result: any;
   try {
     result = JSON.parse(message.content);
@@ -32,7 +26,7 @@ function ReadingCard({ message, readingHref }: { message: Message; readingHref: 
     return null;
   }
   if (result.saved && result.profile) {
-    return <p className="text-xs text-ok">✓ Saved birth details for {result.profile.name}</p>;
+    return <p className="text-xs text-ok">✓ {t('chat.savedDetails', { name: result.profile.name })}</p>;
   }
   if (!result.readingId) return null;
   const s = serviceByType(result.type as ReadingType);
@@ -41,7 +35,7 @@ function ReadingCard({ message, readingHref }: { message: Message; readingHref: 
       <s.icon size={20} className="text-gold" />
       <div className="flex-1">
         <p className="text-sm text-ink">{result.title}</p>
-        <p className="text-xs text-muted">Full report saved. Tap to open.</p>
+        <p className="text-xs text-muted">{t('chat.reportSaved')}</p>
       </div>
       <ArrowRight size={16} className="text-gold" />
     </Link>
@@ -65,6 +59,8 @@ interface ChatEvent {
 
 export function ChatView({ conversationId, initialMessages, initialPrompt, readOnly = false, readingHref = '/readings', onTitle }: ChatViewProps) {
   const { user, refresh } = useAuth();
+  const t = useT();
+  const usageLine = useUsageLine();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
@@ -87,8 +83,8 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
   useEffect(() => {
     if (!busy) return;
     setThinking(0);
-    const t = setInterval(() => setThinking((n) => Math.min(n + 1, THINKING.length - 1)), 5000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setThinking((n) => Math.min(n + 1, THINKING.length - 1)), 5000);
+    return () => clearInterval(timer);
   }, [busy]);
 
   useEffect(() => {
@@ -147,8 +143,8 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
               if (event.text) onTitle?.(event.text);
               break;
             case 'error':
-              if (delivered) setError(event.text ?? 'Something went wrong.');
-              else restore(event.text ?? 'Something went wrong.');
+              if (delivered) setError(event.text ?? t('chat.somethingWrong'));
+              else restore(event.text ?? t('chat.somethingWrong'));
               break;
           }
         },
@@ -184,7 +180,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
               <div className="max-w-[85%] rounded-2xl rounded-br-md bg-violet/25 px-4 py-3 text-ink">
                 {m.imageDataUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.imageDataUrl} alt="Attached" className="mb-2 max-h-48 rounded-lg" />
+                  <img src={m.imageDataUrl} alt={t('chat.attached')} className="mb-2 max-h-48 rounded-lg" />
                 )}
                 <p className="whitespace-pre-wrap">{m.content}</p>
               </div>
@@ -214,16 +210,16 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
               <span className="flex gap-1">
                 {[0, 1, 2].map((i) => <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-gold" style={{ animationDelay: `${i * 150}ms` }} />)}
               </span>
-              {status ?? THINKING[thinking]}
+              {status ?? t(THINKING[thinking])}
             </div>
           </div>
         )}
         {onlyGreeting && !busy && !readOnly && !isOutOfAllowance(user?.usage) && (
           <div className="ml-11">
-            <p className="mb-2 text-xs text-faint">Try one of these, or type your own question:</p>
+            <p className="mb-2 text-xs text-faint">{t('chat.tryThese')}</p>
             <div className="flex flex-wrap gap-2">
-              {STARTERS.map((s) => (
-                <button key={s} onClick={() => send(s)} className="chip px-3 py-1.5 text-sm hover:border-gold/50 hover:text-ink">{s}</button>
+              {STARTERS.map((k) => (
+                <button key={k} onClick={() => send(t(k))} className="chip px-3 py-1.5 text-sm hover:border-gold/50 hover:text-ink">{t(k)}</button>
               ))}
             </div>
           </div>
@@ -241,13 +237,13 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
           {photo && (
             <div className="mb-3 flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo} alt="To send" className="h-16 rounded-lg" />
-              <button type="button" onClick={() => setPhoto(null)} className="text-faint hover:text-ink" aria-label="Remove photo"><X size={16} /></button>
-              <span className="text-xs text-muted">Photo attached. Add a note and send, e.g. "Please read my palm".</span>
+              <img src={photo} alt={t('chat.toSend')} className="h-16 rounded-lg" />
+              <button type="button" onClick={() => setPhoto(null)} className="text-faint hover:text-ink" aria-label={t('chat.removePhoto')}><X size={16} /></button>
+              <span className="text-xs text-muted">{t('chat.photoAttached')}</span>
             </div>
           )}
           <div className="flex items-end gap-2">
-            <label className="cursor-pointer rounded-full border border-line p-3 text-muted hover:border-gold/50 hover:text-gold" title="Attach a photo (for palm reading)">
+            <label className="cursor-pointer rounded-full border border-line p-3 text-muted hover:border-gold/50 hover:text-gold" title={t('chat.attachPhoto')}>
               <ImagePlus size={20} />
               <input
                 type="file"
@@ -268,7 +264,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
             <textarea
               className="input max-h-40 min-h-12 flex-1 resize-none py-3"
               rows={1}
-              placeholder="Ask Jyotaish anything…"
+              placeholder={t('chat.placeholder')}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
@@ -279,13 +275,13 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
               }}
               disabled={busy}
             />
-            <button className="btn-primary h-12 w-12 !p-0" disabled={busy || (!text.trim() && !photo)} aria-label="Send">
+            <button className="btn-primary h-12 w-12 !p-0" disabled={busy || (!text.trim() && !photo)} aria-label={t('chat.send')}>
               <Send size={18} />
             </button>
           </div>
           <p className="mt-2 text-center text-xs text-faint">
             {usageLine(user?.usage) ? <span className="text-muted">{usageLine(user?.usage)} · </span> : null}
-            Press Enter to send, Shift+Enter for a new line. Guidance only, not professional advice.
+            {t('chat.footer')}
           </p>
         </form>
       )}

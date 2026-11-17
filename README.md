@@ -32,6 +32,22 @@ The astrologer chat uses tool calling: Jyotaish can save birth details, prepare 
 
 Replies stream word by word through the `chat` GraphQL subscription (server-sent events). While a tool runs, the stream sends a status line such as "Preparing your Kundli…". The reply keeps running and is saved even if the person closes the page mid-answer. The `sendMessage` mutation still exists for clients that don't stream.
 
+## Languages
+
+The customer site works in English (default), Hindi, Malayalam, Kannada and Bengali. People choose a language from the header (also before signing up) or their profile, and it is saved to their account. In that language they get the whole site including astrology terms (signs, planets, nakshatras, yogas, tarot cards), Jyotaish's replies, every reading, emails and the attached PDFs (with fonts for each script). The admin console, the privacy policy and the terms stay in English.
+
+- Website text: `apps/web/lib/locales/en.ts` (and `terms-en.ts` for astrology terms) with one file per language next to it.
+- Server text (errors, emails, PDF labels, reading titles): written in English in the code and translated through `apps/api/src/i18n/<lang>.json`, keyed by the English sentence.
+- After changing or adding text, run `node scripts/extract-server-strings.mjs` to refresh the server list, then `node scripts/check-translations.mjs` to see anything missing or with broken `{placeholders}`. Missing translations fall back to English.
+
+## Tarot card images
+
+`apps/web/public/tarot` holds the 78 cards of the original 1909 Rider-Waite-Smith deck illustrated by Pamela Colman Smith, which is in the public domain (scans from Wikimedia Commons). Later recoloured editions are still under copyright, so only replace them with other 1909 scans.
+
+## Charts by region
+
+Kundli charts can be drawn in the North Indian (diamond), South Indian (fixed signs, Pisces at top left) or East Indian (fixed signs, Aries at top centre, anticlockwise) style. The Kundli and horoscope forms ask which tradition the person follows, guessing first from their language; the calculation is the same, but the report uses that region's terms, customs and remedies, and the chart style can be switched on any Kundli page.
+
 ## Run it locally
 
 Requirements: Node 20+, Docker.

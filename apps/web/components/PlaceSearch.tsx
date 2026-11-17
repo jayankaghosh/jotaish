@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { gql } from '@/lib/gql';
+import { useT } from '@/lib/i18n';
 import type { Place } from '@/lib/types';
 import { Spinner } from './ui';
 
 export function PlaceSearch({ value, onSelect }: { value: Place | null; onSelect: (p: Place | null) => void }) {
+  const t = useT();
   const [query, setQuery] = useState(value?.label ?? '');
   const [results, setResults] = useState<Place[]>([]);
   const [busy, setBusy] = useState(false);
@@ -41,7 +43,7 @@ export function PlaceSearch({ value, onSelect }: { value: Place | null; onSelect
         <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" />
         <input
           className="input pl-11"
-          placeholder="Start typing a town or city, e.g. Jaipur"
+          placeholder={t('place.placeholder')}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -66,14 +68,14 @@ export function PlaceSearch({ value, onSelect }: { value: Place | null; onSelect
                 }}
               >
                 <span className="text-ink">{p.label}</span>
-                <span className="text-xs text-faint">Time zone {p.timezone}</span>
+                <span className="text-xs text-faint">{t('place.timezone', { zone: p.timezone })}</span>
               </button>
             </li>
           ))}
         </ul>
       )}
       {open && !busy && query.trim().length >= 2 && results.length === 0 && !value && (
-        <p className="hint">No matches yet. Try the nearest larger town, or add the country, e.g. "Kota, India".</p>
+        <p className="hint">{t('place.noMatch')}</p>
       )}
     </div>
   );

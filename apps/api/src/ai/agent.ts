@@ -3,6 +3,7 @@ import { prisma } from '../lib/db';
 import { userError } from '../lib/auth';
 import { complete, type ChatMessage, type ContentPart, type ToolDefinition } from './openrouter';
 import { astrologerSystemPrompt } from './prompts';
+import { LANGUAGE_NAMES, currentLang, tr, withLang, type Lang } from '../i18n';
 import { saveProfile } from '../services/profiles';
 import { assertCanInteract } from '../services/limits';
 import * as readings from '../services/readings';
@@ -36,8 +37,8 @@ const TOOLS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'generate_birth_chart',
-      description: 'Compute a Vedic birth chart (Kundli) with dashas, yogas and doshas and write a full report. Uses the user\'s own profile unless profileId is given.',
-      parameters: { type: 'object', properties: { profileId: { type: 'string' } } },
+      description: 'Compute a Vedic birth chart (Kundli) with dashas, yogas and doshas and write a full report. Uses the user\'s own profile unless profileId is given. If you know which Indian tradition the person follows (north, south or east), pass it as region.',
+      parameters: { type: 'object', properties: { profileId: { type: 'string' }, region: { type: 'string', enum: ['north', 'south', 'east'] } } },
     },
   },
   {
@@ -52,6 +53,7 @@ const TOOLS: ToolDefinition[] = [
           sign: { type: 'string', enum: [...SIGNS] },
           period: { type: 'string', enum: ['today', 'week', 'month'] },
           system: { type: 'string', enum: ['vedic', 'western'] },
+          region: { type: 'string', enum: ['north', 'south', 'east'] },
         },
       },
     },
@@ -178,7 +180,7 @@ async function runTool(name: string, args: any, ctx: { userId: string; conversat
       return { saved: true, profile: { id: profile.id, name: profile.name, relation: profile.relation, birthDate: profile.birthDate, birthTime: profile.birthTime, birthPlace: profile.birthPlace } };
     }
     case 'generate_birth_chart':
-      return readingResult(await readings.createBirthChart(owner, args.profileId));
+      return readingResult(await readings.createBirthChart(owner, args.profileId, args.region));
     case 'horoscope':
       return readingResult(await readings.createHoroscope(owner, args));
     case 'compatibility':
@@ -258,14 +260,14 @@ export async function greeting(userId: string, focusTitle?: string) {
     prisma.reading.count({ where: { userId } }),
   ]);
   const first = user.name.split(' ')[0];
-  if (focusTitle) return `Namaste ${first}. I have your reading **${focusTitle}** open in front of me. What would you like to understand better?`;
+  if (focusTitle) return tr('Namaste {name}. I have your reading **{title}** open in front of me. What would you like to understand better?', { name: first, title: focusTitle });
   if (!profileCount) {
-    return `Namaste ${first}, I'm Jyotaish, your astrologer. I can prepare your Kundli, read tarot, explain your numbers, read your palm or interpret a dream.\n\nTo begin with anything chart-based, I'll need your **date of birth**, **time of birth** (approximate is fine) and **place of birth**. Would you like to share them, or would you rather start with tarot or a dream?`;
+    return tr("Namaste {name}, I'm Jyotaish, your astrologer. I can prepare your Kundli, read tarot, explain your numbers, read your palm or interpret a dream.\n\nTo begin with anything chart-based, I'll need your **date of birth**, **time of birth** (approximate is fine) and **place of birth**. Would you like to share them, or would you rather start with tarot or a dream?", { name: first });
   }
   if (!readingCount) {
-    return `Namaste ${first}, I'm Jyotaish, your astrologer. I have your birth details, so we can begin whenever you're ready. A good first step is your **Kundli**, the full map of your birth chart. Or simply tell me what's on your mind: career, love, family, health or timing.`;
+    return tr("Namaste {name}, I'm Jyotaish, your astrologer. I have your birth details, so we can begin whenever you're ready. A good first step is your **Kundli**, the full map of your birth chart. Or simply tell me what's on your mind: career, love, family, health or timing.", { name: first });
   }
-  return `Namaste ${first}, welcome back. What's on your mind today? You can ask about career, love, health or timing, or pick one of the suggestions below.`;
+  return tr("Namaste {name}, welcome back. What's on your mind today? You can ask about career, love, health or timing, or pick one of the suggestions below.", { name: first });
 }
 
 export type ChatEvent =
@@ -317,7 +319,7 @@ export async function sendMessage(
 
   const all = await prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: 'asc' } });
   const latestImage = [...all].reverse().find((m) => m.imageDataUrl)?.imageDataUrl ?? null;
-  const system = astrologerSystemPrompt(await personContext(userId, conversation.focusReadingId));
+  const system = astrologerSystemPrompt(await personContext(userId, conversation.focusReadingId), currentLang());
   const messages: ChatMessage[] = [{ role: 'system', content: system }, ...toChatMessages(trimHistory(all), userMessage.id)];
 
   try {
@@ -336,7 +338,7 @@ export async function sendMessage(
       if (!reply.toolCalls.length) break;
 
       for (const call of reply.toolCalls) {
-        emit({ type: 'status', text: TOOL_STATUS[call.function.name] ?? 'Working on it…' });
+        emit({ type: 'status', text: tr(TOOL_STATUS[call.function.name] ?? 'Working on it…') });
         let result: unknown;
         try {
           result = await runTool(call.function.name, JSON.parse(call.function.arguments || '{}'), { userId, conversationId, latestImage });
@@ -349,7 +351,7 @@ export async function sendMessage(
       }
     }
   } catch (e) {
-    await record({ conversationId, role: 'assistant', content: `I'm sorry, I couldn't respond just now. ${(e as Error).message}` });
+    await record({ conversationId, role: 'assistant', content: `${tr("I'm sorry, I couldn't respond just now.")} ${(e as Error).message}` });
   }
 
   await prisma.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
@@ -360,7 +362,7 @@ export async function sendMessage(
 
 // Runs a reply and yields its events as they happen. The reply keeps going
 // and is saved even if the person closes the page mid-stream.
-export async function* streamMessage(userId: string, conversationId: string, content: string, imageDataUrl?: string | null) {
+export async function* streamMessage(userId: string, conversationId: string, content: string, imageDataUrl: string | null | undefined, lang: Lang) {
   const queue: ChatEvent[] = [];
   let wake: (() => void) | null = null;
   let finished = false;
@@ -369,10 +371,14 @@ export async function* streamMessage(userId: string, conversationId: string, con
     wake = null;
   };
 
-  sendMessage(userId, conversationId, content, imageDataUrl, (event) => {
-    queue.push(event);
-    notify();
-  })
+  // The reply runs on after this generator is left, so it carries its own
+  // language rather than relying on the request.
+  withLang(lang, () =>
+    sendMessage(userId, conversationId, content, imageDataUrl, (event) => {
+      queue.push(event);
+      notify();
+    }),
+  )
     .catch((e) => queue.push({ type: 'error', text: (e as Error).message }))
     .finally(() => {
       finished = true;
@@ -396,7 +402,10 @@ async function nameConversation(userId: string, conversationId: string, firstMes
       userId,
       maxTokens: 20,
       messages: [
-        { role: 'system', content: 'Give a 2 to 5 word title for an astrology consultation that starts with this message. Reply with the title only, no quotes.' },
+        {
+          role: 'system',
+          content: `Give a 2 to 5 word title, in ${LANGUAGE_NAMES[currentLang()]}, for an astrology consultation that starts with this message. Reply with the title only, no quotes.`,
+        },
         { role: 'user', content: firstMessage.slice(0, 500) },
       ],
     });

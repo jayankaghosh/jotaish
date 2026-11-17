@@ -12,6 +12,7 @@ import { getPaymentSettings, grantCredits, quote, reviewPayment, setPaymentSetti
 import { disconnectGmail, getMailSettings, isConfigured, saveGmailConnection, sendTestMail, setMailSettings, type MailSettings } from '../services/mail';
 import { authUrl, checkState, exchangeCode, makeState } from '../services/gmail';
 import { campaignEmail } from '../services/notifications';
+import { isLang, toLang } from '../i18n';
 import { confirmCode, forgetVerificationSetting, needsVerification, notVerifiedError, sendCode } from '../services/verification';
 import { greeting, sendMessage, streamMessage, type ChatEvent } from '../ai/agent';
 import { AiError, complete, listOpenRouterModels } from '../ai/openrouter';
@@ -104,7 +105,7 @@ function withoutPhoto<T extends { type: ReadingType; input: Prisma.JsonValue }>(
 function createReadingFor(owner: { userId: string }, input: any) {
   switch (input.type as ReadingType) {
     case 'BIRTH_CHART':
-      return readings.createBirthChart(owner, input.profileId);
+      return readings.createBirthChart(owner, input.profileId, input.region);
     case 'HOROSCOPE':
       return readings.createHoroscope(owner, input);
     case 'COMPATIBILITY':
@@ -296,20 +297,20 @@ export const resolvers = {
   Subscription: {
     chat: {
       subscribe: (_: unknown, args: { conversationId: string; content: string; imageDataUrl?: string }, ctx: Context) =>
-        streamMessage(requireUser(ctx).id, args.conversationId, args.content, args.imageDataUrl),
+        streamMessage(requireUser(ctx).id, args.conversationId, args.content, args.imageDataUrl, ctx.lang),
       resolve: (event: ChatEvent) => event,
     },
   },
 
   Mutation: {
-    register: async (_: unknown, { input }: { input: { name: string; email: string; password: string } }) => {
+    register: async (_: unknown, { input }: { input: { name: string; email: string; password: string; language?: string } }, ctx: Context) => {
       const email = input.email.trim().toLowerCase();
       if (!input.name.trim()) throw userError('Please tell us your name.');
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw userError('Please enter a valid email address.');
       if (input.password.length < 8) throw userError('Please choose a password with at least 8 characters.');
       if (await prisma.user.findUnique({ where: { email } })) throw userError('An account with this email already exists. Try signing in instead.');
       const user = await prisma.user.create({
-        data: { email, name: input.name.trim(), passwordHash: await bcrypt.hash(input.password, 10), lastSeenAt: new Date() },
+        data: { email, name: input.name.trim(), passwordHash: await bcrypt.hash(input.password, 10), lastSeenAt: new Date(), language: toLang(input.language ?? ctx.lang) },
       });
       if (await needsVerification(user)) {
         await sendCode(user);
@@ -341,9 +342,14 @@ export const resolvers = {
       if (user && !user.disabled && (await needsVerification(user))) await sendCode(user);
       return true;
     },
-    updateMe: (_: unknown, { name }: { name?: string }, ctx: Context) => {
-      const user = requireUser(ctx);
-      return prisma.user.update({ where: { id: user.id }, data: name?.trim() ? { name: name.trim() } : {} });
+    updateMe: (_: unknown, { name, language }: { name?: string; language?: string }, ctx: Context) => {
+      // Language can be changed even before the email is confirmed, so the
+      // confirmation screen itself can switch language; a name change can't.
+      const user = name?.trim() || !ctx.user ? requireUser(ctx) : ctx.user;
+      return prisma.user.update({
+        where: { id: user.id },
+        data: { ...(name?.trim() ? { name: name.trim() } : {}), ...(isLang(language) ? { language } : {}) },
+      });
     },
     changePassword: async (_: unknown, { current, next }: { current: string; next: string }, ctx: Context) => {
       const user = requireUser(ctx);

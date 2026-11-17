@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { MailCheck } from 'lucide-react';
 import { gql } from '@/lib/gql';
+import { useT } from '@/lib/i18n';
 import { ErrorNote, Spinner } from './ui';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function VerifyCode({ email, onVerified, sendOnOpen = false }: Props) {
+  const t = useT();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,10 +59,8 @@ export function VerifyCode({ email, onVerified, sendOnOpen = false }: Props) {
     <form onSubmit={submit} className="space-y-5">
       <div className="text-center">
         <div className="mx-auto mb-3 inline-flex rounded-full bg-gold/15 p-3 text-gold"><MailCheck size={28} /></div>
-        <h1 className="font-display text-3xl text-ink">Check your email</h1>
-        <p className="mt-2 text-sm text-muted">
-          We sent a 6-digit code to <span className="text-ink">{email}</span>. Enter it below to confirm your email address.
-        </p>
+        <h1 className="font-display text-3xl text-ink">{t('verify.title')}</h1>
+        <p className="mt-2 text-sm text-muted">{t('verify.body', { email })}</p>
       </div>
       <input
         className="input text-center font-display text-3xl tracking-[0.5em]"
@@ -71,18 +71,17 @@ export function VerifyCode({ email, onVerified, sendOnOpen = false }: Props) {
         onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
         placeholder="••••••"
         autoFocus
-        aria-label="Verification code"
+        aria-label={t('verify.codeLabel')}
       />
       <ErrorNote message={error} />
-      <button className="btn-primary w-full py-3" disabled={busy || code.length !== 6}>{busy ? <Spinner /> : 'Confirm email'}</button>
+      <button className="btn-primary w-full py-3" disabled={busy || code.length !== 6}>{busy ? <Spinner /> : t('verify.confirm')}</button>
       <div className="text-center text-sm text-muted">
-        {resent && <p className="mb-1 text-ok">A new code is on its way.</p>}
+        {resent && <p className="mb-1 text-ok">{t('verify.resent')}</p>}
         <p>
-          Didn&apos;t get it? Check your spam folder, or{' '}
+          {t('verify.notReceived')}{' '}
           <button type="button" className="text-gold hover:underline disabled:text-faint disabled:no-underline" onClick={resend} disabled={cooldown > 0}>
-            {cooldown > 0 ? `send a new code in ${cooldown}s` : 'send a new code'}
+            {cooldown > 0 ? t('verify.resendIn', { seconds: cooldown }) : t('verify.resend')}
           </button>
-          .
         </p>
       </div>
     </form>

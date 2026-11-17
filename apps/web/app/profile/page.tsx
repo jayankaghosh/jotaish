@@ -7,31 +7,33 @@ import { BirthWizard } from '@/components/BirthWizard';
 import { ErrorNote, PageTitle, Spinner, Tip } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { gql } from '@/lib/gql';
+import { LANGUAGES, useI18n } from '@/lib/i18n';
 import type { BirthProfile } from '@/lib/types';
 
 export default function ProfilePage() {
   const { user, refresh } = useAuth();
+  const { t, term } = useI18n();
   const [editing, setEditing] = useState<BirthProfile | 'new' | null>(null);
 
   if (!user) return <Shell>{null}</Shell>;
   const self = user.profiles.find((p) => p.relation === 'self');
 
   async function remove(p: BirthProfile) {
-    if (!confirm(`Remove ${p.name}'s birth details? Their saved readings will stay.`)) return;
+    if (!confirm(t('profile.confirmRemove', { name: p.name }))) return;
     await gql(`mutation($id: ID!) { deleteProfile(id: $id) }`, { id: p.id });
     await refresh();
   }
 
   return (
     <Shell>
-      <PageTitle title="Your profile" subtitle="Manage your account and the birth details Jyotaish uses for charts and matching." />
+      <PageTitle title={t('profile.title')} subtitle={t('profile.subtitle')} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="card p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-2xl text-ink">People and birth details</h2>
+            <h2 className="font-display text-2xl text-ink">{t('profile.people')}</h2>
             {!editing && (
-              <button className="btn-ghost" onClick={() => setEditing('new')}><UserPlus size={16} /> Add person</button>
+              <button className="btn-ghost" onClick={() => setEditing('new')}><UserPlus size={16} /> {t('profile.addPerson')}</button>
             )}
           </div>
 
@@ -51,24 +53,24 @@ export default function ProfilePage() {
             <>
               {!self && (
                 <div className="mb-4">
-                  <Tip>Add your own birth details first. Jyotaish uses them for your Kundli, horoscopes and compatibility.</Tip>
+                  <Tip>{t('profile.addOwnFirst')}</Tip>
                 </div>
               )}
               <ul className="space-y-2">
                 {user.profiles.map((p) => (
                   <li key={p.id} className="flex items-center gap-4 rounded-xl border border-line p-4">
                     <div className="flex-1">
-                      <p className="text-ink">{p.name} <span className="text-xs capitalize text-faint">({p.relation === 'self' ? 'you' : p.relation})</span></p>
+                      <p className="text-ink">{p.name} <span className="text-xs text-faint">({p.relation === 'self' ? t('person.you') : term('relation', p.relation)})</span></p>
                       <p className="text-sm text-muted">
-                        {p.birthDate} · {p.birthTime ?? 'time not known'} · {p.birthPlace}
+                        {p.birthDate} · {p.birthTime ?? t('profile.timeNotKnown')} · {p.birthPlace}
                       </p>
-                      {!p.birthTime && <p className="mt-1 text-xs text-gold-soft">Adding a birth time will make readings more precise.</p>}
+                      {!p.birthTime && <p className="mt-1 text-xs text-gold-soft">{t('profile.addTime')}</p>}
                     </div>
-                    <button className="rounded-full p-2 text-muted hover:text-gold" onClick={() => setEditing(p)} aria-label={`Edit ${p.name}`}><Pencil size={16} /></button>
-                    <button className="rounded-full p-2 text-muted hover:text-danger" onClick={() => remove(p)} aria-label={`Remove ${p.name}`}><Trash2 size={16} /></button>
+                    <button className="rounded-full p-2 text-muted hover:text-gold" onClick={() => setEditing(p)} aria-label={t('profile.edit', { name: p.name })}><Pencil size={16} /></button>
+                    <button className="rounded-full p-2 text-muted hover:text-danger" onClick={() => remove(p)} aria-label={t('profile.remove', { name: p.name })}><Trash2 size={16} /></button>
                   </li>
                 ))}
-                {user.profiles.length === 0 && <p className="text-sm text-muted">No one added yet.</p>}
+                {user.profiles.length === 0 && <p className="text-sm text-muted">{t('profile.noOne')}</p>}
               </ul>
             </>
           )}
@@ -85,6 +87,7 @@ export default function ProfilePage() {
 
 function AccountCard() {
   const { user, refresh } = useAuth();
+  const { t, lang, setLang } = useI18n();
   const [name, setName] = useState(user?.name ?? '');
   const [saved, setSaved] = useState(false);
 
@@ -97,21 +100,31 @@ function AccountCard() {
 
   return (
     <form className="card space-y-4 p-6" onSubmit={save}>
-      <h2 className="font-display text-2xl text-ink">Account</h2>
+      <h2 className="font-display text-2xl text-ink">{t('profile.account')}</h2>
       <div>
-        <label className="label" htmlFor="acc-name">Name</label>
+        <label className="label" htmlFor="acc-name">{t('wizard.review.name')}</label>
         <input id="acc-name" className="input" value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} />
       </div>
       <div>
-        <span className="label">Email</span>
+        <span className="label">{t('auth.email')}</span>
         <p className="text-sm text-muted">{user?.email}</p>
       </div>
-      <button className="btn-ghost" disabled={!name.trim()}>{saved ? 'Saved' : 'Save'}</button>
+      <div>
+        <label className="label" htmlFor="acc-lang">{t('profile.language')}</label>
+        <select id="acc-lang" className="input" value={lang} onChange={(e) => setLang(e.target.value as typeof lang)}>
+          {LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>{l.native}{l.code !== 'en' ? ` (${l.name})` : ''}</option>
+          ))}
+        </select>
+        <p className="hint">{t('profile.languageHint')}</p>
+      </div>
+      <button className="btn-ghost" disabled={!name.trim()}>{saved ? t('common.saved') : t('common.save')}</button>
     </form>
   );
 }
 
 function PasswordCard() {
+  const { t } = useI18n();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [busy, setBusy] = useState(false);
@@ -136,12 +149,12 @@ function PasswordCard() {
 
   return (
     <form className="card space-y-4 p-6" onSubmit={save}>
-      <h2 className="font-display text-2xl text-ink">Change password</h2>
-      <input type="password" className="input" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
-      <input type="password" className="input" placeholder="New password (8+ characters)" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+      <h2 className="font-display text-2xl text-ink">{t('profile.changePassword')}</h2>
+      <input type="password" className="input" placeholder={t('profile.currentPassword')} value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
+      <input type="password" className="input" placeholder={t('profile.newPassword')} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
       <ErrorNote message={error} />
-      {done && <p className="text-sm text-ok">Password updated.</p>}
-      <button className="btn-ghost" disabled={busy || !current || next.length < 8}>{busy ? <Spinner /> : 'Update password'}</button>
+      {done && <p className="text-sm text-ok">{t('profile.passwordUpdated')}</p>}
+      <button className="btn-ghost" disabled={busy || !current || next.length < 8}>{busy ? <Spinner /> : t('profile.updatePassword')}</button>
     </form>
   );
 }

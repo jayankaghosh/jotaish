@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql';
 import { prisma } from '../lib/db';
 import { userError } from '../lib/auth';
+import { tr } from '../i18n';
 import { emailPaymentReviewed, emailPaymentSubmitted } from './notifications';
 
 export interface CreditPack {
@@ -63,11 +64,11 @@ const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 // Works out the price of a request. Amounts must be whole multiples of one
 // row of the price table; among the rows that fit, the best rate wins.
 export function quote(packs: CreditPack[], ask: { credits?: number | null; rupees?: number | null }): Quote {
-  if (!packs.length) return { ok: false, rupees: null, credits: null, message: 'Buying credits is not available yet.', suggestions: [] };
+  if (!packs.length) return { ok: false, rupees: null, credits: null, message: tr('Buying credits is not available yet.'), suggestions: [] };
   const byRupees = ask.rupees != null;
   const amount = byRupees ? ask.rupees! : ask.credits ?? 0;
   if (!Number.isInteger(amount) || amount <= 0) {
-    return { ok: false, rupees: null, credits: null, message: byRupees ? 'Please enter a whole number of rupees.' : 'Please enter a whole number of credits.', suggestions: [] };
+    return { ok: false, rupees: null, credits: null, message: tr(byRupees ? 'Please enter a whole number of rupees.' : 'Please enter a whole number of credits.'), suggestions: [] };
   }
 
   const fits = packs.filter((p) => amount % (byRupees ? p.rupees : p.credits) === 0);
@@ -91,12 +92,12 @@ export function quote(packs: CreditPack[], ask: { credits?: number | null; rupee
     .slice(0, 3)
     .map(([, v]) => v)
     .sort((a, b) => a.rupees - b.rupees);
-  const steps = packs.map((p) => (byRupees ? inr(p.rupees) : `${p.credits} credits`)).join(', ');
+  const steps = packs.map((p) => (byRupees ? inr(p.rupees) : tr('{credits} credits', { credits: p.credits }))).join(', ');
   return {
     ok: false,
     rupees: null,
     credits: null,
-    message: `Amounts go in multiples of ${steps}. Here are the closest options.`,
+    message: tr('Amounts go in multiples of {steps}. Here are the closest options.', { steps }),
     suggestions,
   };
 }
@@ -119,7 +120,7 @@ export async function grantCredits(userId: string, credits: number, adminId: str
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { id: userId } });
     if (!user) throw userError('User not found.');
-    if (user.creditBalance + credits < 0) throw userError(`This user only has ${Math.floor(user.creditBalance)} credits, so you can remove at most that many.`);
+    if (user.creditBalance + credits < 0) throw userError('This user only has {credits} credits, so you can remove at most that many.', { credits: Math.floor(user.creditBalance) });
     await tx.creditGrant.create({ data: { userId, credits, note: note?.trim() || null, paymentId: paymentId ?? null, grantedById: adminId } });
     return tx.user.update({ where: { id: userId }, data: { creditBalance: { increment: credits } } });
   });

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Calendar, Check, Clock, MapPin, User } from 'lucide-react';
 import { gql } from '@/lib/gql';
+import { formatDate } from '@/lib/dates';
+import { useI18n, type MessageKey } from '@/lib/i18n';
 import { PROFILE_FIELDS } from '@/lib/fragments';
 import type { BirthProfile, Place } from '@/lib/types';
 import { PlaceSearch } from './PlaceSearch';
@@ -20,16 +22,17 @@ interface Props {
   saveLabel?: string;
 }
 
-const APPROX = [
-  { label: 'Early morning', hint: '4 to 8 am', time: '06:00' },
-  { label: 'Morning', hint: '8 am to noon', time: '10:00' },
-  { label: 'Afternoon', hint: 'noon to 4 pm', time: '14:00' },
-  { label: 'Evening', hint: '4 to 8 pm', time: '18:00' },
-  { label: 'Night', hint: '8 pm to midnight', time: '22:00' },
-  { label: 'Late night', hint: 'midnight to 4 am', time: '02:00' },
+const APPROX: { key: string; time: string }[] = [
+  { key: 'earlyMorning', time: '06:00' },
+  { key: 'morning', time: '10:00' },
+  { key: 'afternoon', time: '14:00' },
+  { key: 'evening', time: '18:00' },
+  { key: 'night', time: '22:00' },
+  { key: 'lateNight', time: '02:00' },
 ];
 
-export function BirthWizard({ initial, askName = true, onSaved, onCancel, saveLabel = 'Save birth details' }: Props) {
+export function BirthWizard({ initial, askName = true, onSaved, onCancel, saveLabel }: Props) {
+  const { t, term } = useI18n();
   const steps = [...(askName ? ['who'] : []), 'date', 'time', 'place', 'review'] as const;
   const [step, setStep] = useState(0);
   const [name, setName] = useState(initial?.name ?? '');
@@ -80,11 +83,11 @@ export function BirthWizard({ initial, askName = true, onSaved, onCancel, saveLa
     }
   }
 
-  const pretty = date ? new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  const pretty = date ? formatDate(`${date}T00:00:00`) : '';
 
   return (
     <div>
-      <div className="mb-8 flex items-center gap-2" aria-label={`Step ${step + 1} of ${steps.length}`}>
+      <div className="mb-8 flex items-center gap-2" aria-label={t('wizard.stepOf', { step: step + 1, total: steps.length })}>
         {steps.map((s, i) => (
           <div key={s} className={`h-1.5 flex-1 rounded-full transition ${i <= step ? 'bg-gold' : 'bg-line'}`} />
         ))}
@@ -92,17 +95,17 @@ export function BirthWizard({ initial, askName = true, onSaved, onCancel, saveLa
 
       {current === 'who' && (
         <section className="space-y-5">
-          <Header icon={<User />} title="Who is this chart for?" body="You can save details for family and friends too, for example to check compatibility with a partner." />
+          <Header icon={<User />} title={t('wizard.who.title')} body={t('wizard.who.body')} />
           <div>
-            <label className="label" htmlFor="pname">Their name</label>
-            <input id="pname" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rahul" autoFocus />
+            <label className="label" htmlFor="pname">{t('wizard.theirName')}</label>
+            <input id="pname" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('wizard.theirNamePlaceholder')} autoFocus />
           </div>
           <div>
-            <span className="label">How are they related to you?</span>
+            <span className="label">{t('wizard.relation')}</span>
             <div className="flex flex-wrap gap-2">
               {RELATIONS.map((r) => (
                 <button key={r} type="button" onClick={() => setRelation(r)} className={`chip capitalize ${relation === r ? 'border-gold bg-gold/15 text-gold-soft' : 'hover:text-ink'}`}>
-                  {r === 'self' ? 'Myself' : r}
+                  {term('relation', r)}
                 </button>
               ))}
             </div>
@@ -113,11 +116,11 @@ export function BirthWizard({ initial, askName = true, onSaved, onCancel, saveLa
 
       {current === 'date' && (
         <section className="space-y-5">
-          <Header icon={<Calendar />} title={askName ? `When was ${name || 'they'} born?` : 'When were you born?'} body="Your date of birth decides your Sun sign and where the slow-moving planets were." />
+          <Header icon={<Calendar />} title={askName ? t('wizard.date.titleOther', { name: name || t('wizard.they') }) : t('wizard.date.title')} body={t('wizard.date.body')} />
           <div>
-            <label className="label" htmlFor="bdate">Date of birth</label>
+            <label className="label" htmlFor="bdate">{t('wizard.dateOfBirth')}</label>
             <input id="bdate" type="date" className="input" value={date} max={new Date().toISOString().slice(0, 10)} min="1900-01-01" onChange={(e) => setDate(e.target.value)} autoFocus />
-            {pretty && <p className="hint">That's {pretty}.</p>}
+            {pretty && <p className="hint">{t('wizard.thatIs', { date: pretty })}</p>}
           </div>
           {!askName && <GenderPicker value={gender} onChange={setGender} />}
         </section>
@@ -125,13 +128,13 @@ export function BirthWizard({ initial, askName = true, onSaved, onCancel, saveLa
 
       {current === 'time' && (
         <section className="space-y-5">
-          <Header icon={<Clock />} title="What time were you born?" body="The time sets your ascendant (lagna) and houses, which change every two hours. It is usually on the birth certificate or hospital record." />
+          <Header icon={<Clock />} title={t('wizard.time.title')} body={t('wizard.time.body')} />
           <div className="grid gap-2 sm:grid-cols-3">
             {([
-              ['exact', 'I know the time'],
-              ['approx', 'Roughly'],
-              ['unknown', "I don't know"],
-            ] as [TimeMode, string][]).map(([mode, label]) => (
+              ['exact', 'wizard.time.exact'],
+              ['approx', 'wizard.time.approx'],
+              ['unknown', 'wizard.time.unknown'],
+            ] as [TimeMode, MessageKey][]).map(([mode, label]) => (
               <button
                 key={mode}
                 type="button"
@@ -141,59 +144,53 @@ export function BirthWizard({ initial, askName = true, onSaved, onCancel, saveLa
                 }}
                 className={`rounded-xl border px-4 py-3 text-sm transition ${timeMode === mode ? 'border-gold bg-gold/10 text-gold-soft' : 'border-line text-muted hover:text-ink'}`}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </div>
           {timeMode === 'exact' && (
             <div>
-              <label className="label" htmlFor="btime">Time of birth (local time where you were born)</label>
+              <label className="label" htmlFor="btime">{t('wizard.timeLabel')}</label>
               <input id="btime" type="time" className="input" value={time} onChange={(e) => setTime(e.target.value)} autoFocus />
             </div>
           )}
           {timeMode === 'approx' && (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {APPROX.map((a) => (
-                <button key={a.label} type="button" onClick={() => setTime(a.time)} className={`rounded-xl border px-3 py-3 text-left text-sm ${time === a.time ? 'border-gold bg-gold/10' : 'border-line hover:border-gold/40'}`}>
-                  <span className="block text-ink">{a.label}</span>
-                  <span className="text-xs text-faint">{a.hint}</span>
+                <button key={a.key} type="button" onClick={() => setTime(a.time)} className={`rounded-xl border px-3 py-3 text-left text-sm ${time === a.time ? 'border-gold bg-gold/10' : 'border-line hover:border-gold/40'}`}>
+                  <span className="block text-ink">{t(`wizard.approx.${a.key}` as MessageKey)}</span>
+                  <span className="text-xs text-faint">{t(`wizard.approx.${a.key}.hint` as MessageKey)}</span>
                 </button>
               ))}
             </div>
           )}
           {timeMode === 'approx' && (
-            <Tip>
-              That works. We'll use the middle of that window. Your Moon sign and nakshatra will almost certainly be right; the
-              ascendant may shift. You can add the exact time later from your profile.
-            </Tip>
+            <Tip>{t('wizard.approxTip')}</Tip>
           )}
           {timeMode === 'unknown' && (
-            <Tip>
-              No problem. We'll read your chart from your Moon sign, which is still very meaningful. You can add the exact time later
-              from your profile and every new reading will become more precise.
-            </Tip>
+            <Tip>{t('wizard.unknownTip')}</Tip>
           )}
         </section>
       )}
 
       {current === 'place' && (
         <section className="space-y-5">
-          <Header icon={<MapPin />} title="Where were you born?" body="The place gives us the latitude, longitude and time zone, so the planets are placed correctly in the sky above you." />
+          <Header icon={<MapPin />} title={t('wizard.place.title')} body={t('wizard.place.body')} />
           <PlaceSearch value={place} onSelect={setPlace} />
-          {place && <p className="hint">Selected: {place.label} ({place.latitude.toFixed(2)}, {place.longitude.toFixed(2)}, {place.timezone})</p>}
-          <p className="hint">If your village isn't listed, choose the nearest town. A few kilometres makes almost no difference.</p>
+          {place && <p className="hint">{t('wizard.selected', { place: `${place.label} (${place.latitude.toFixed(2)}, ${place.longitude.toFixed(2)}, ${place.timezone})` })}</p>}
+          <p className="hint">{t('wizard.placeHint')}</p>
         </section>
       )}
 
       {current === 'review' && (
         <section className="space-y-5">
-          <Header icon={<Check />} title="Does this look right?" body="Please check once. You can always edit these later from your profile." />
+          <Header icon={<Check />} title={t('wizard.review.title')} body={t('wizard.review.body')} />
           <dl className="divide-y divide-line rounded-xl border border-line">
             {[
-              ['Name', name],
-              ['Date of birth', pretty],
-              ['Time of birth', timeMode === 'unknown' ? 'Not known' : `${time}${timeMode === 'approx' ? ' (approximate)' : ''}`],
-              ['Place of birth', place?.label],
+              [t('wizard.review.name'), name],
+              [t('wizard.dateOfBirth'), pretty],
+              [t('wizard.review.time'), timeMode === 'unknown' ? t('wizard.review.notKnown') : `${time}${timeMode === 'approx' ? ` (${t('wizard.review.approximate')})` : ''}`],
+              [t('wizard.review.place'), place?.label],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 px-4 py-3 text-sm">
                 <dt className="text-muted">{k}</dt>
@@ -208,20 +205,20 @@ export function BirthWizard({ initial, askName = true, onSaved, onCancel, saveLa
       <div className="mt-8 flex items-center justify-between gap-3">
         {step > 0 ? (
           <button type="button" className="btn-ghost" onClick={() => setStep(step - 1)} disabled={busy}>
-            <ArrowLeft size={16} /> Back
+            <ArrowLeft size={16} /> {t('common.back')}
           </button>
         ) : onCancel ? (
-          <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button type="button" className="btn-ghost" onClick={onCancel}>{t('common.cancel')}</button>
         ) : (
           <span />
         )}
         {current === 'review' ? (
           <button type="button" className="btn-primary" onClick={save} disabled={busy}>
-            {busy ? <Spinner /> : <Check size={16} />} {saveLabel}
+            {busy ? <Spinner /> : <Check size={16} />} {saveLabel ?? t('wizard.save')}
           </button>
         ) : (
           <button type="button" className="btn-primary" onClick={() => setStep(step + 1)} disabled={!canNext}>
-            Continue <ArrowRight size={16} />
+            {t('common.continue')} <ArrowRight size={16} />
           </button>
         )}
       </div>
@@ -240,17 +237,18 @@ function Header({ icon, title, body }: { icon: React.ReactNode; title: string; b
 }
 
 function GenderPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useI18n();
   return (
     <div>
-      <span className="label">Gender <span className="font-normal text-faint">(optional)</span></span>
+      <span className="label">{t('wizard.gender')} <span className="font-normal text-faint">{t('wizard.optional')}</span></span>
       <div className="flex flex-wrap gap-2">
         {['female', 'male', 'other'].map((g) => (
           <button key={g} type="button" onClick={() => onChange(value === g ? '' : g)} className={`chip capitalize ${value === g ? 'border-gold bg-gold/15 text-gold-soft' : 'hover:text-ink'}`}>
-            {g}
+            {t(`wizard.gender.${g}` as MessageKey)}
           </button>
         ))}
       </div>
-      <p className="hint">Some traditional readings, like matching, use it.</p>
+      <p className="hint">{t('wizard.genderHint')}</p>
     </div>
   );
 }

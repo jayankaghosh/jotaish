@@ -3,9 +3,11 @@ import { GraphQLError } from 'graphql';
 import type { User } from '@prisma/client';
 import { prisma } from './db';
 import { env } from './env';
+import { tr, type Lang } from '../i18n';
 
 export interface Context {
   user: User | null;
+  lang: Lang;
   // Signed in but hasn't confirmed their email while confirmation is on.
   unverified: boolean;
 }
@@ -27,9 +29,9 @@ export async function userFromHeader(header: string | null): Promise<User | null
 }
 
 export function requireUser(ctx: Context): User {
-  if (!ctx.user) throw new GraphQLError('Please sign in to continue.', { extensions: { code: 'UNAUTHENTICATED' } });
+  if (!ctx.user) throw new GraphQLError(tr('Please sign in to continue.'), { extensions: { code: 'UNAUTHENTICATED' } });
   if (ctx.unverified) {
-    throw new GraphQLError('Please confirm your email address to continue.', { extensions: { code: 'EMAIL_NOT_VERIFIED', email: ctx.user.email } });
+    throw new GraphQLError(tr('Please confirm your email address to continue.'), { extensions: { code: 'EMAIL_NOT_VERIFIED', email: ctx.user.email } });
   }
   return ctx.user;
 }
@@ -40,6 +42,8 @@ export function requireAdmin(ctx: Context): User {
   return user;
 }
 
-export function userError(message: string): GraphQLError {
-  return new GraphQLError(message, { extensions: { code: 'BAD_USER_INPUT' } });
+// Messages are written in English and translated for the person asking;
+// {name}-style placeholders are filled from vars.
+export function userError(message: string, vars?: Record<string, string | number>): GraphQLError {
+  return new GraphQLError(tr(message, vars), { extensions: { code: 'BAD_USER_INPUT' } });
 }

@@ -28,6 +28,8 @@ model User {
   passwordHash        String
   name                String
   role                Role             @default(USER)
+  // en, hi, ml, kn or bn: the website, readings and emails use it.
+  language            String           @default("en")
   // Blocked accounts cannot sign in or use the API.
   disabled            Boolean          @default(false)
   // Per-user override of the default AI credit allowance (1 credit =
