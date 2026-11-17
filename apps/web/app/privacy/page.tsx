@@ -37,7 +37,7 @@ We do **not** sell your personal information, and we do not use it for advertisi
 
 ## How readings are prepared
 
-Our astrologer, Jyotaish, is an automated assistant. Planetary positions, cards and numbers are calculated by our own software. The written interpretation is produced by language models that we access through **OpenRouter**, which passes the request to the model provider we have chosen (for example Anthropic, OpenAI or Google). To prepare a reading, we send them the information that reading needs: for example your birth details and chart, your question, a dream description, or a palm photo. We do not send your password, and we only send your email address where it is part of what you wrote. These providers process the information to return the reading under their own terms and privacy policies.
+Our astrologer, Jotaish, is an automated assistant. Planetary positions, cards and numbers are calculated by our own software. The written interpretation is produced by language models that we access through **OpenRouter**, which passes the request to the model provider we have chosen (for example Anthropic, OpenAI or Google). To prepare a reading, we send them the information that reading needs: for example your birth details and chart, your question, a dream description, or a palm photo. We do not send your password, and we only send your email address where it is part of what you wrote. These providers process the information to return the reading under their own terms and privacy policies.
 
 ## Who can see your information
 

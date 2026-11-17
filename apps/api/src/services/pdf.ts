@@ -34,7 +34,7 @@ const fontsFor = (lang: Lang) => (SCRIPT[lang] ? noto(SCRIPT[lang]!) : LATIN);
 const INK = '#2a2540';
 const MUTED = '#6f6a96';
 const GOLD = '#b8862f';
-const NIGHT = '#15132b';
+const NIGHT = '#0c0a1c';
 const LOGO = fileURLToPath(new URL('../../assets/logo.png', import.meta.url));
 
 const TYPE_LABEL: Record<string, string> = {
@@ -220,7 +220,7 @@ export function readingPdf(reading: Reading, personName: string, lang: Lang = 'e
 
     doc.rect(0, 0, doc.page.width, 70).fill(NIGHT);
     doc.image(LOGO, 56, 17, { width: 36, height: 36 });
-    doc.font('serif').fontSize(20).fillColor('#f3d79b').text('Jotaish', 100, 24);
+    doc.font('serif').fontSize(20).fillColor('#fde98c').text('Jotaish', 100, 24);
     doc.font('body').fontSize(9).fillColor('#a59fc9').text(tr(TYPE_LABEL[reading.type] ?? 'Reading', undefined, lang), 56, 30, { align: 'right' });
 
     doc.y = 100;

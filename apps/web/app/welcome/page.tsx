@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowRight, MessageCircle } from 'lucide-react';
 import { Shell } from '@/components/Shell';
 import { BirthWizard } from '@/components/BirthWizard';
 import { useAuth } from '@/lib/auth';
@@ -22,7 +22,8 @@ export default function WelcomePage() {
       <div className="mx-auto max-w-2xl">
         {stage === 'intro' && (
           <div className="card p-8 text-center sm:p-12">
-            <Sparkles className="mx-auto mb-4 text-gold" size={36} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/mark.svg" alt="" className="mx-auto mb-4 h-16 w-16" />
             <h1 className="font-display text-4xl text-ink">{t('welcome.title', { name: user?.name.split(' ')[0] ?? '' })}</h1>
             <p className="mx-auto mt-3 max-w-lg text-muted">{t('welcome.intro')}</p>
             <ul className="mx-auto mt-6 max-w-sm space-y-2 text-left text-sm text-muted">

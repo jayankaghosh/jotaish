@@ -20,6 +20,7 @@ import {
   AI_TASKS, RECOMMENDED_MODELS, getApiKey, getModels, getTemperature, setApiKey, setModels, setTemperature, type AiTask,
 } from '../ai/settings';
 import { env } from '../lib/env';
+import { todaySky } from '../services/today';
 
 const iso = (field: string) => (parent: any) => (parent[field] ? new Date(parent[field]).toISOString() : null);
 
@@ -172,6 +173,7 @@ export const resolvers = {
     },
     myProfiles: (_: unknown, __: unknown, ctx: Context) =>
       prisma.birthProfile.findMany({ where: { userId: requireUser(ctx).id }, orderBy: { createdAt: 'asc' } }),
+    today: (_: unknown, __: unknown, ctx: Context) => todaySky(requireUser(ctx).id),
     myReadings: async (_: unknown, { type }: { type?: ReadingType }, ctx: Context) => {
       const list = await prisma.reading.findMany({ where: { userId: requireUser(ctx).id, ...(type ? { type } : {}) }, orderBy: { createdAt: 'desc' } });
       return list.map(withoutPhoto);

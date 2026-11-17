@@ -191,12 +191,12 @@ export default function AdminEmails() {
           <h2 className="mb-3 font-display text-2xl text-ink">Preview</h2>
           <div className="overflow-hidden rounded-xl bg-[#f4f1ea] p-4">
             <div className="overflow-hidden rounded-xl bg-white">
-              <div className="flex items-center gap-2 bg-[#15132b] px-6 py-4 font-display text-xl text-[#f3d79b]">
+              <div className="flex items-center gap-2 bg-[#0c0a1c] px-6 py-4 font-display text-xl text-[#fde98c]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/brand/mark.svg" width={30} height={30} alt="" /> Jotaish
               </div>
               <div className="px-6 py-5 text-[#2a2540]">
-                <h3 className="mb-3 font-display text-2xl text-[#15132b]">{subject || 'Your subject'}</h3>
+                <h3 className="mb-3 font-display text-2xl text-[#0c0a1c]">{subject || 'Your subject'}</h3>
                 <Markdown tone="light">{body.replace(/\{name\}/g, (everyone ? null : chosen[0]?.name.split(' ')[0]) ?? 'Priya')}</Markdown>
               </div>
             </div>

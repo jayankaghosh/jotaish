@@ -14,7 +14,7 @@ export function Spinner({ size = 18 }: { size?: number }) {
 const MARKDOWN_TONES = {
   dark: 'prose prose-invert max-w-none prose-headings:font-display prose-headings:text-gold-soft prose-h2:text-2xl prose-h3:text-xl prose-strong:text-ink prose-a:text-gold prose-li:marker:text-gold/70',
   // For previews of emails, which are light.
-  light: 'prose prose-sm max-w-none text-[#2a2540] prose-headings:text-[#15132b] prose-strong:text-[#15132b] prose-a:text-[#b8862f] prose-li:marker:text-[#b8862f]',
+  light: 'prose prose-sm max-w-none text-[#2a2540] prose-headings:text-[#0c0a1c] prose-strong:text-[#0c0a1c] prose-a:text-[#b8862f] prose-li:marker:text-[#b8862f]',
 };
 
 export function Markdown({ children, tone = 'dark' }: { children: string; tone?: keyof typeof MARKDOWN_TONES }) {
@@ -27,9 +27,9 @@ export function Markdown({ children, tone = 'dark' }: { children: string; tone?:
 
 export function PageTitle({ title, subtitle, action }: { title: string; subtitle?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="font-display text-4xl font-semibold text-ink">{title}</h1>
+        <h1 className="font-display text-3xl font-semibold text-ink sm:text-4xl">{title}</h1>
         {subtitle && <p className="mt-2 max-w-2xl text-muted">{subtitle}</p>}
       </div>
       {action}
@@ -58,7 +58,7 @@ export function EmptyState({ icon, title, body, action }: { icon: ReactNode; tit
   return (
     <div className="card flex flex-col items-center px-6 py-14 text-center">
       <div className="mb-4 rounded-full bg-raised p-4 text-gold">{icon}</div>
-      <h3 className="font-display text-2xl text-ink">{title}</h3>
+      <h3 className="font-display text-xl font-semibold text-ink">{title}</h3>
       <p className="mt-2 max-w-md text-muted">{body}</p>
       {action && <div className="mt-6">{action}</div>}
     </div>
@@ -93,7 +93,7 @@ export function Consulting({ kind = 'general' }: { kind?: string }) {
         <div className="absolute inset-0 animate-spin rounded-full border-2 border-gold/20 border-t-gold" style={{ animationDuration: '2.4s' }} />
         <div className="absolute inset-3 animate-spin rounded-full border-2 border-violet/20 border-b-violet" style={{ animationDuration: '3.6s', animationDirection: 'reverse' }} />
       </div>
-      <p className="font-display text-2xl text-gold-soft">{steps[i]}</p>
+      <p className="font-display text-xl font-semibold text-gold-soft">{steps[i]}</p>
       <p className="mt-2 text-sm text-muted">{t('consulting.note')}</p>
     </div>
   );

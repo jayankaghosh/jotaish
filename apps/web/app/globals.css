@@ -1,26 +1,53 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+/* Colours and type follow docs/brand.md, which takes them from the logo. */
 @theme {
-  --color-night: #0b0a1a;
-  --color-surface: #15132b;
-  --color-raised: #1d1a3a;
-  --color-line: #2c2856;
-  --color-ink: #ece9ff;
-  --color-muted: #a59fc9;
-  --color-faint: #6f6a96;
-  --color-gold: #e8b75d;
-  --color-gold-soft: #f3d79b;
-  --color-violet: #8b7cf6;
-  --color-rose: #f08aa8;
-  --color-ok: #6fd3a4;
-  --color-danger: #f27a7a;
-  --font-display: var(--font-cormorant), var(--font-devanagari), var(--font-malayalam), var(--font-kannada), var(--font-bengali), Georgia, serif;
+  --color-night: #0c0a1c;
+  --color-surface: #141129;
+  --color-raised: #1d1938;
+  --color-line: #2a2550;
+  --color-ink: #f3f0ff;
+  --color-muted: #aba5cf;
+  --color-faint: #736e9a;
+  --color-gold: #f9c23c;
+  --color-gold-soft: #fde98c;
+  --color-gold-deep: #f5a51e;
+  --color-violet: #8f7cff;
+  --color-rose: #ff8fa3;
+  --color-ok: #5fd4a0;
+  --color-danger: #f47c7c;
+  --font-display: var(--font-sora), var(--font-devanagari), var(--font-malayalam), var(--font-kannada), var(--font-bengali), system-ui, sans-serif;
   --font-sans: var(--font-inter), var(--font-devanagari), var(--font-malayalam), var(--font-kannada), var(--font-bengali), system-ui, sans-serif;
+  --animate-rise: rise 0.3s ease-out both;
+  --animate-twinkle: twinkle 2.4s ease-in-out infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes twinkle {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+    50% {
+      opacity: 0.6;
+      transform: scale(0.82) rotate(45deg);
+    }
+  }
 }
 
 html {
   color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -31,20 +58,42 @@ body {
 
 body {
   background-image:
-    radial-gradient(1200px 600px at 80% -10%, rgb(139 124 246 / 0.16), transparent 60%),
-    radial-gradient(900px 500px at -10% 10%, rgb(232 183 93 / 0.08), transparent 60%);
+    radial-gradient(900px 520px at 85% -10%, rgb(143 124 255 / 0.16), transparent 60%),
+    radial-gradient(700px 420px at -10% 0%, rgb(249 194 60 / 0.08), transparent 60%);
   background-attachment: fixed;
-  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  .font-display {
+    letter-spacing: -0.02em;
+  }
+  .font-display {
+    font-weight: 600;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @utility card {
-  @apply rounded-2xl border border-line bg-surface/80 backdrop-blur;
+  @apply rounded-3xl border border-line bg-surface/85 backdrop-blur;
 }
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primary {
-  @apply btn bg-gold text-night hover:bg-gold-soft;
+  @apply btn bg-linear-135 from-gold-soft via-gold to-gold-deep font-semibold text-night shadow-lg shadow-gold/15 hover:brightness-105;
 }
 @utility btn-ghost {
   @apply btn border border-line text-ink hover:border-gold/60 hover:text-gold-soft;
@@ -53,7 +102,7 @@ body {
   @apply btn border border-danger/40 text-danger hover:bg-danger/10;
 }
 @utility input {
-  @apply w-full rounded-xl border border-line bg-night/60 px-4 py-3 text-ink placeholder:text-faint outline-none transition focus:border-gold/70 focus:ring-2 focus:ring-gold/20;
+  @apply w-full rounded-2xl border border-line bg-raised/60 px-4 py-3 text-base text-ink placeholder:text-faint outline-none transition focus:border-violet/70 focus:ring-2 focus:ring-violet/25;
 }
 @utility label {
   @apply mb-1.5 block text-sm font-medium text-ink;
@@ -63,4 +112,10 @@ body {
 }
 @utility chip {
   @apply inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-muted;
+}
+@utility text-gradient {
+  @apply bg-linear-135 from-gold-soft via-gold to-gold-deep bg-clip-text text-transparent;
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }

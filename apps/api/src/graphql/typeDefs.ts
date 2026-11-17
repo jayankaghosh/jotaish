@@ -335,6 +335,8 @@ export const typeDefs = /* GraphQL */ `
     system: String
     question: String
     spread: String
+    # Places tapped in the face-down tarot deck, one per card in the spread.
+    picks: [Int!]
     fullName: String
     birthDate: String
     imageDataUrl: String
@@ -395,8 +397,34 @@ export const typeDefs = /* GraphQL */ `
     mail: MailSettingsInput
   }
 
+  # The Moon today and what it means for the signed-in person. Free.
+  type TodaySky {
+    date: String!
+    moonSign: String!
+    nakshatra: String!
+    paksha: String!
+    tithi: Int!
+    illumination: Float!
+    waxing: Boolean!
+    personal: TodayPersonal
+  }
+
+  type TodayPersonal {
+    name: String!
+    moonSign: String!
+    houseFromMoon: Int!
+    dasha: CurrentDasha
+  }
+
+  type CurrentDasha {
+    mahadasha: String!
+    antardasha: String!
+    until: String!
+  }
+
   type Query {
     me: User
+    today: TodaySky!
     myProfiles: [BirthProfile!]!
     myReadings(type: ReadingType): [Reading!]!
     reading(id: ID!): Reading

@@ -11,7 +11,7 @@ Welcome to Jotaish. These terms are an agreement between you and Jotaish ("we", 
 
 ## 1. What Jotaish offers
 
-Jotaish provides astrology and related readings, including Vedic birth charts (Kundli), horoscopes, compatibility, tarot, numerology, palm reading and dream interpretation, and a conversational astrologer, Jyotaish, who is an automated assistant. Charts and calculations are produced by our software, and interpretations are written by language models.
+Jotaish provides astrology and related readings, including Vedic birth charts (Kundli), horoscopes, compatibility, tarot, numerology, palm reading and dream interpretation, and a conversational astrologer, Jotaish, who is an automated assistant. Charts and calculations are produced by our software, and interpretations are written by language models.
 
 ## 2. Guidance, not professional advice
 

@@ -29,7 +29,7 @@ function defaultRegion(): Region {
   return lang === 'ml' || lang === 'kn' ? 'south' : lang === 'bn' ? 'east' : 'north';
 }
 
-function chartFor(profile: BirthProfile) {
+export function chartFor(profile: BirthProfile) {
   const utc = localToUtc(profile.birthDate, profile.birthTime ?? '12:00', profile.timezone);
   return computeBirthChart(profile, utc);
 }
@@ -179,10 +179,10 @@ export async function createCompatibility(owner: Owner, profileA: string, profil
   return save(owner, 'COMPATIBILITY', tr('{a} & {b}: compatibility', { a: a.name, b: b.name }), { profileA: a.id, profileB: b.id }, data as any, report, a.id);
 }
 
-export async function createTarot(owner: Owner, args: { question?: string | null; spread?: string | null }) {
+export async function createTarot(owner: Owner, args: { question?: string | null; spread?: string | null; picks?: number[] | null }) {
   const spread = args.spread && SPREADS[args.spread] ? args.spread : 'three';
   const question = args.question?.trim() || tr('General guidance for the path ahead');
-  const cards = drawSpread(spread);
+  const cards = drawSpread(spread, args.picks);
   const report = await writeReport('tarot', owner.userId, { question, spread: SPREADS[spread].label, cards });
   return save(owner, 'TAROT', tr('Tarot: {question}', { question: question.slice(0, 60) }), { question, spread }, { spread: SPREADS[spread].label, cards }, report);
 }

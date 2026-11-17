@@ -1,18 +1,23 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Pencil, Trash2, UserPlus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronRight, Coins, LogOut, Pencil, Trash2, UserPlus } from 'lucide-react';
 import { Shell } from '@/components/Shell';
 import { BirthWizard } from '@/components/BirthWizard';
-import { ErrorNote, PageTitle, Spinner, Tip } from '@/components/ui';
+import { ErrorNote, Spinner, Tip } from '@/components/ui';
+import { useUsageLine } from '@/components/UsageNote';
 import { useAuth } from '@/lib/auth';
 import { gql } from '@/lib/gql';
 import { LANGUAGES, useI18n } from '@/lib/i18n';
 import type { BirthProfile } from '@/lib/types';
 
 export default function ProfilePage() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, signOut } = useAuth();
   const { t, term } = useI18n();
+  const router = useRouter();
+  const usageLine = useUsageLine();
   const [editing, setEditing] = useState<BirthProfile | 'new' | null>(null);
 
   if (!user) return <Shell>{null}</Shell>;
@@ -26,19 +31,36 @@ export default function ProfilePage() {
 
   return (
     <Shell>
-      <PageTitle title={t('profile.title')} subtitle={t('profile.subtitle')} />
+      <div className="mb-6 flex items-center gap-4">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-linear-135 from-gold-soft via-gold to-gold-deep font-display text-2xl font-semibold text-night">
+          {user.name.trim().charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0">
+          <h1 className="truncate font-display text-2xl font-semibold text-ink sm:text-3xl">{user.name}</h1>
+          <p className="truncate text-sm text-muted">{user.email}</p>
+        </div>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="card p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-2xl text-ink">{t('profile.people')}</h2>
+      <Link href="/credits" className="mb-6 flex items-center gap-4 rounded-3xl border border-gold/35 bg-gold/[0.07] p-4 hover:border-gold/60">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold"><Coins size={20} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium text-ink">{t('nav.credits')}</span>
+          <span className="block text-sm text-muted">{usageLine(user.usage) ?? t('me.creditsBody')}</span>
+        </span>
+        <ChevronRight size={18} className="shrink-0 text-gold" />
+      </Link>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+        <section className="card p-5 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="font-display text-xl font-semibold text-ink">{t('profile.people')}</h2>
             {!editing && (
-              <button className="btn-ghost" onClick={() => setEditing('new')}><UserPlus size={16} /> {t('profile.addPerson')}</button>
+              <button className="btn-ghost shrink-0 whitespace-nowrap !px-4" onClick={() => setEditing('new')}><UserPlus size={16} /> {t('profile.addPerson')}</button>
             )}
           </div>
 
           {editing ? (
-            <div className="rounded-2xl border border-line bg-night/40 p-5 sm:p-8">
+            <div className="rounded-2xl border border-line bg-night/40 p-4 sm:p-8">
               <BirthWizard
                 askName={editing === 'new' || editing.relation !== 'self'}
                 initial={editing === 'new' ? (self ? undefined : { name: user.name, relation: 'self' }) : editing}
@@ -58,8 +80,8 @@ export default function ProfilePage() {
               )}
               <ul className="space-y-2">
                 {user.profiles.map((p) => (
-                  <li key={p.id} className="flex items-center gap-4 rounded-xl border border-line p-4">
-                    <div className="flex-1">
+                  <li key={p.id} className="flex items-center gap-2 rounded-2xl border border-line p-4">
+                    <div className="min-w-0 flex-1">
                       <p className="text-ink">{p.name} <span className="text-xs text-faint">({p.relation === 'self' ? t('person.you') : term('relation', p.relation)})</span></p>
                       <p className="text-sm text-muted">
                         {p.birthDate} · {p.birthTime ?? t('profile.timeNotKnown')} · {p.birthPlace}
@@ -79,6 +101,19 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <AccountCard />
           <PasswordCard />
+          <button
+            className="btn-ghost w-full"
+            onClick={() => {
+              signOut();
+              router.push('/');
+            }}
+          >
+            <LogOut size={16} /> {t('nav.signOut')}
+          </button>
+          <p className="flex justify-center gap-4 text-xs text-faint">
+            <Link href="/privacy" className="hover:text-muted">{t('footer.privacy')}</Link>
+            <Link href="/terms" className="hover:text-muted">{t('footer.terms')}</Link>
+          </p>
         </div>
       </div>
     </Shell>
@@ -99,8 +134,8 @@ function AccountCard() {
   }
 
   return (
-    <form className="card space-y-4 p-6" onSubmit={save}>
-      <h2 className="font-display text-2xl text-ink">{t('profile.account')}</h2>
+    <form className="card space-y-4 p-5 sm:p-6" onSubmit={save}>
+      <h2 className="font-display text-xl font-semibold text-ink">{t('profile.account')}</h2>
       <div>
         <label className="label" htmlFor="acc-name">{t('wizard.review.name')}</label>
         <input id="acc-name" className="input" value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} />
@@ -148,8 +183,8 @@ function PasswordCard() {
   }
 
   return (
-    <form className="card space-y-4 p-6" onSubmit={save}>
-      <h2 className="font-display text-2xl text-ink">{t('profile.changePassword')}</h2>
+    <form className="card space-y-4 p-5 sm:p-6" onSubmit={save}>
+      <h2 className="font-display text-xl font-semibold text-ink">{t('profile.changePassword')}</h2>
       <input type="password" className="input" placeholder={t('profile.currentPassword')} value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
       <input type="password" className="input" placeholder={t('profile.newPassword')} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
       <ErrorNote message={error} />

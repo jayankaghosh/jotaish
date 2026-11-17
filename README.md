@@ -1,6 +1,6 @@
 # Jotaish
 
-A personal astrology service: Vedic Kundli, horoscopes, compatibility, tarot, numerology, palm reading and dream interpretation, with a conversational astrologer ("Jyotaish") who guides people step by step. Every reading is saved to the person's profile, and admins can see all users, conversations and readings.
+A personal astrology service: Vedic Kundli, horoscopes, compatibility, tarot, numerology, palm reading and dream interpretation, with a conversational astrologer ("Jotaish") who guides people step by step. Every reading is saved to the person's profile, and admins can see all users, conversations and readings.
 
 ## Stack
 
@@ -28,13 +28,13 @@ apps/
 2. The computed data goes to the model configured for that task, which writes the report.
 3. The reading is stored with its input, computed data, text and the model that wrote it.
 
-The astrologer chat uses tool calling: Jyotaish can save birth details, prepare a Kundli, horoscope, matching, tarot, numerology, palm or dream reading, and open past readings. Each tool result is saved as a reading and appears in the chat as a card.
+The astrologer chat uses tool calling: Jotaish can save birth details, prepare a Kundli, horoscope, matching, tarot, numerology, palm or dream reading, and open past readings. Each tool result is saved as a reading and appears in the chat as a card.
 
 Replies stream word by word through the `chat` GraphQL subscription (server-sent events). While a tool runs, the stream sends a status line such as "Preparing your Kundli…". The reply keeps running and is saved even if the person closes the page mid-answer. The `sendMessage` mutation still exists for clients that don't stream.
 
 ## Languages
 
-The customer site works in English (default), Hindi, Malayalam, Kannada and Bengali. People choose a language from the header (also before signing up) or their profile, and it is saved to their account. In that language they get the whole site including astrology terms (signs, planets, nakshatras, yogas, tarot cards), Jyotaish's replies, every reading, emails and the attached PDFs (with fonts for each script). The admin console, the privacy policy and the terms stay in English.
+The customer site works in English (default), Hindi, Malayalam, Kannada and Bengali. People choose a language from the header (also before signing up) or their profile, and it is saved to their account. In that language they get the whole site including astrology terms (signs, planets, nakshatras, yogas, tarot cards), Jotaish's replies, every reading, emails and the attached PDFs (with fonts for each script). The admin console, the privacy policy and the terms stay in English.
 
 - Website text: `apps/web/lib/locales/en.ts` (and `terms-en.ts` for astrology terms) with one file per language next to it.
 - Server text (errors, emails, PDF labels, reading titles): written in English in the code and translated through `apps/api/src/i18n/<lang>.json`, keyed by the English sentence.
@@ -50,7 +50,7 @@ Kundli charts can be drawn in the North Indian (diamond), South Indian (fixed si
 
 ## Logo and icons
 
-The logo mark lives in `apps/web/public/brand/mark.svg`. Favicons, home-screen icons and the PNG used in emails and PDFs are made from it; after changing the mark, run `node scripts/brand-icons.mjs`.
+Colours, type, shapes and voice come from the logo and are written up in [docs/brand.md](docs/brand.md). The logo mark lives in `apps/web/public/brand/mark.svg`. Favicons, home-screen icons and the PNG used in emails and PDFs are made from it; after changing the mark, run `node scripts/brand-icons.mjs`.
 
 ## Run it locally
 

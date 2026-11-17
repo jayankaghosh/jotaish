@@ -66,7 +66,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
   const [photo, setPhoto] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [thinking, setThinking] = useState(0);
-  // Text of the reply being written right now, and what Jyotaish is doing.
+  // Text of the reply being written right now, and what Jotaish is doing.
   const [draft, setDraft] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -171,13 +171,13 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
 
   return (
     <div className="flex h-full flex-col">
-      <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto px-1 pb-4">
+      <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto overscroll-contain py-4">
         {visible.map((m) =>
           m.role === 'tool' ? (
             <div key={m.id} className="ml-11 max-w-xl"><ReadingCard message={m} readingHref={readingHref} /></div>
           ) : m.role === 'user' ? (
             <div key={m.id} className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-violet/25 px-4 py-3 text-ink">
+              <div className="max-w-[85%] animate-rise rounded-3xl rounded-br-lg border border-violet/30 bg-linear-135 from-violet/35 to-violet/15 px-4 py-3 text-ink">
                 {m.imageDataUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={m.imageDataUrl} alt={t('chat.attached')} className="mb-2 max-h-48 rounded-lg" />
@@ -188,7 +188,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
           ) : (
             <div key={m.id} className="flex gap-3">
               <Avatar />
-              <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-line bg-surface px-4 py-3">
+              <div className="min-w-0 max-w-[88%] animate-rise rounded-3xl rounded-tl-lg border border-line bg-surface px-4 py-3">
                 <Markdown>{m.content}</Markdown>
               </div>
             </div>
@@ -197,7 +197,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
         {busy && draft && !status && (
           <div className="flex gap-3">
             <Avatar />
-            <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-line bg-surface px-4 py-3">
+            <div className="min-w-0 max-w-[88%] rounded-3xl rounded-tl-lg border border-line bg-surface px-4 py-3">
               <Markdown>{draft}</Markdown>
               <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-gold align-middle" aria-hidden />
             </div>
@@ -206,7 +206,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
         {busy && (!draft || status) && (
           <div className="flex items-center gap-3">
             <Avatar />
-            <div className="flex items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-muted" role="status">
+            <div className="flex items-center gap-2 rounded-3xl border border-line bg-surface px-4 py-3 text-sm text-muted" role="status">
               <span className="flex gap-1">
                 {[0, 1, 2].map((i) => <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-gold" style={{ animationDelay: `${i * 150}ms` }} />)}
               </span>
@@ -219,7 +219,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
             <p className="mb-2 text-xs text-faint">{t('chat.tryThese')}</p>
             <div className="flex flex-wrap gap-2">
               {STARTERS.map((k) => (
-                <button key={k} onClick={() => send(t(k))} className="chip px-3 py-1.5 text-sm hover:border-gold/50 hover:text-ink">{t(k)}</button>
+                <button key={k} onClick={() => send(t(k))} className="rounded-full border border-gold/30 bg-gold/[0.06] px-3.5 py-2 text-left text-sm text-gold-soft hover:border-gold/60">{t(k)}</button>
               ))}
             </div>
           </div>
@@ -227,12 +227,12 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
       </div>
 
       {!readOnly && !busy && isOutOfAllowance(user?.usage) && (
-        <div className="border-t border-line pt-4">
+        <div className="pb-safe border-t border-line pb-3 pt-4">
           <OutOfAllowance usage={user!.usage!} />
         </div>
       )}
       {!readOnly && (busy || !isOutOfAllowance(user?.usage)) && (
-        <form onSubmit={submit} className="border-t border-line pt-4">
+        <form onSubmit={submit} className="pb-safe border-t border-line/70 pt-3 lg:border-line lg:pt-4">
           <ErrorNote message={error} />
           {photo && (
             <div className="mb-3 flex items-center gap-3">
@@ -242,8 +242,8 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
               <span className="text-xs text-muted">{t('chat.photoAttached')}</span>
             </div>
           )}
-          <div className="flex items-end gap-2">
-            <label className="cursor-pointer rounded-full border border-line p-3 text-muted hover:border-gold/50 hover:text-gold" title={t('chat.attachPhoto')}>
+          <div className="flex items-end gap-1.5 rounded-[28px] border border-line bg-raised/70 p-1.5 focus-within:border-violet/60">
+            <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted hover:text-gold" title={t('chat.attachPhoto')}>
               <ImagePlus size={20} />
               <input
                 type="file"
@@ -262,7 +262,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
               />
             </label>
             <textarea
-              className="input max-h-40 min-h-12 flex-1 resize-none py-3"
+              className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-1 py-2.5 text-base text-ink outline-none placeholder:text-faint"
               rows={1}
               placeholder={t('chat.placeholder')}
               value={text}
@@ -275,13 +275,13 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
               }}
               disabled={busy}
             />
-            <button className="btn-primary h-12 w-12 !p-0" disabled={busy || (!text.trim() && !photo)} aria-label={t('chat.send')}>
+            <button className="btn-primary h-11 w-11 shrink-0 !p-0" disabled={busy || (!text.trim() && !photo)} aria-label={t('chat.send')}>
               <Send size={18} />
             </button>
           </div>
-          <p className="mt-2 text-center text-xs text-faint">
-            {usageLine(user?.usage) ? <span className="text-muted">{usageLine(user?.usage)} · </span> : null}
-            {t('chat.footer')}
+          <p className="mb-2 mt-2 px-2 text-center text-[11px] leading-snug text-faint">
+            {usageLine(user?.usage) ? <span className="text-muted">{usageLine(user?.usage)}<span className="hidden sm:inline"> · </span></span> : null}
+            <span className="hidden sm:inline">{t('chat.footer')}</span>
           </p>
         </form>
       )}

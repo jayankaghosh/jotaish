@@ -14,3 +14,12 @@ export function cardImage(card: string): string | null {
   const rank = RANKS.indexOf(minor[1]);
   return rank >= 0 ? `/tarot/${minor[2].toLowerCase()}-${String(rank + 1).padStart(2, '0')}.jpg` : null;
 }
+
+// Card of the day: one of the Major Arcana, the same all day for a person.
+export function dailyCard(seed: string, date = new Date()) {
+  const key = `${seed}:${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  let h = 0;
+  for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const index = h % MAJORS.length;
+  return { index, card: MAJORS[index] };
+}

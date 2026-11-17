@@ -37,13 +37,13 @@ export default function ReadingsPage() {
       )}
       {readings && readings.length > 0 && (
         <>
-          <div className="mb-6 flex flex-wrap gap-2">
-            <button onClick={() => setFilter(null)} className={`chip px-4 py-1.5 text-sm ${!filter ? 'border-gold text-gold-soft' : ''}`}>{t('readings.all', { count: readings.length })}</button>
+          <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+            <button onClick={() => setFilter(null)} className={`chip shrink-0 px-4 py-2 text-sm ${!filter ? 'border-gold bg-gold/10 text-gold-soft' : ''}`}>{t('readings.all', { count: readings.length })}</button>
             {SERVICES.filter((s) => types.has(s.type)).map((s) => (
-              <button key={s.type} onClick={() => setFilter(s.type)} className={`chip px-4 py-1.5 text-sm ${filter === s.type ? 'border-gold text-gold-soft' : ''}`}>{t(serviceKey(s, 'title'))}</button>
+              <button key={s.type} onClick={() => setFilter(s.type)} className={`chip shrink-0 px-4 py-2 text-sm ${filter === s.type ? 'border-gold bg-gold/10 text-gold-soft' : ''}`}>{t(serviceKey(s, 'title'))}</button>
             ))}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((r) => {
               const s = serviceByType(r.type);
               return (
@@ -52,7 +52,7 @@ export default function ReadingsPage() {
                     <span className="chip"><s.icon size={14} className="text-gold" /> {t(serviceKey(s, 'title'))}</span>
                     <span className="text-xs text-faint">{formatDate(r.createdAt)}</span>
                   </div>
-                  <h3 className="font-display text-xl text-ink">{r.title}</h3>
+                  <h3 className="font-display text-lg font-semibold leading-snug text-ink">{r.title}</h3>
                 </Link>
               );
             })}

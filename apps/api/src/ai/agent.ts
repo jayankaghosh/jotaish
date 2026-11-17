@@ -262,10 +262,10 @@ export async function greeting(userId: string, focusTitle?: string) {
   const first = user.name.split(' ')[0];
   if (focusTitle) return tr('Namaste {name}. I have your reading **{title}** open in front of me. What would you like to understand better?', { name: first, title: focusTitle });
   if (!profileCount) {
-    return tr("Namaste {name}, I'm Jyotaish, your astrologer. I can prepare your Kundli, read tarot, explain your numbers, read your palm or interpret a dream.\n\nTo begin with anything chart-based, I'll need your **date of birth**, **time of birth** (approximate is fine) and **place of birth**. Would you like to share them, or would you rather start with tarot or a dream?", { name: first });
+    return tr("Namaste {name}, I'm Jotaish, your astrologer. I can prepare your Kundli, read tarot, explain your numbers, read your palm or interpret a dream.\n\nTo begin with anything chart-based, I'll need your **date of birth**, **time of birth** (approximate is fine) and **place of birth**. Would you like to share them, or would you rather start with tarot or a dream?", { name: first });
   }
   if (!readingCount) {
-    return tr("Namaste {name}, I'm Jyotaish, your astrologer. I have your birth details, so we can begin whenever you're ready. A good first step is your **Kundli**, the full map of your birth chart. Or simply tell me what's on your mind: career, love, family, health or timing.", { name: first });
+    return tr("Namaste {name}, I'm Jotaish, your astrologer. I have your birth details, so we can begin whenever you're ready. A good first step is your **Kundli**, the full map of your birth chart. Or simply tell me what's on your mind: career, love, family, health or timing.", { name: first });
   }
   return tr("Namaste {name}, welcome back. What's on your mind today? You can ask about career, love, health or timing, or pick one of the suggestions below.", { name: first });
 }

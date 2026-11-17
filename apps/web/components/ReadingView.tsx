@@ -14,7 +14,7 @@ export function ReadingView({ reading }: { reading: Reading }) {
   return (
     <div className="space-y-8">
       <ReadingData reading={reading} />
-      <section className="card p-6 sm:p-10">
+      <section className="card p-5 sm:p-10">
         <Markdown>{reading.interpretation}</Markdown>
       </section>
       <p className="text-center text-xs text-faint">{t('view.prepared', { date: formatDate(reading.createdAt, true) })}</p>

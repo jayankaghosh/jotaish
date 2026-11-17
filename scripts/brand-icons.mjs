@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 
 const sharp = createRequire(import.meta.url)('sharp');
 const MARK = 'apps/web/public/brand/mark.svg';
-const NIGHT = '#15132b';
+const NIGHT = '#0c0a1c';
 
 // The mark on its own, transparent.
 const plain = (size) => sharp(MARK, { density: 600 }).resize(size, size).png().toBuffer();

@@ -49,7 +49,7 @@ export function emailReading(readingId: string) {
         t('Your {noun} is ready', { noun }),
         para(t('Namaste {name},', { name: first(reading.user.name) })) +
           para(t('Your {noun} {title} has been prepared. The full reading is attached as a PDF so you can keep it, print it or share it with family.', { noun, title: strong(reading.title) })) +
-          para(t("It's also saved in your account, where you can ask Jyotaish any questions about it.")) +
+          para(t("It's also saved in your account, where you can ask Jotaish any questions about it.")) +
           button(t('Open my reading'), siteUrl(`/readings/${reading.id}`)),
         lang,
       ),
@@ -115,7 +115,7 @@ export function emailPaymentReviewed(payment: PaymentRequest) {
                 credits: strong(t('{credits} credits', { credits: added })),
               })) +
               (payment.note ? para(escapeHtml(payment.note)) : '') +
-              button(t('Ask Jyotaish'), siteUrl('/chat?new=1')),
+              button(t('Ask Jotaish'), siteUrl('/chat?new=1')),
             lang,
           )
         : layout(
@@ -156,7 +156,7 @@ export function verificationEmail(user: Pick<User, 'id' | 'name' | 'email' | 'la
       t('Confirm your email'),
       para(t('Namaste {name},', { name: first(user.name) })) +
         para(t('Please enter this code in Jotaish to confirm your email address:')) +
-        `<p style="font-size:34px;letter-spacing:10px;font-weight:bold;color:#15132b;margin:24px 0">${code}</p>` +
+        `<p style="font-size:34px;letter-spacing:10px;font-weight:bold;color:#0c0a1c;margin:24px 0">${code}</p>` +
         para(t("The code works for 30 minutes. If you didn't create a Jotaish account, you can ignore this email.")),
       lang,
     ),

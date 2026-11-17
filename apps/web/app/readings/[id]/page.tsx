@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense, use, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CheckCircle2, MessageCircle, Printer, Trash2 } from 'lucide-react';
+import { CheckCircle2, MessageCircle, Printer, Share2, Trash2 } from 'lucide-react';
 import { Shell } from '@/components/Shell';
 import { ReadingView } from '@/components/ReadingView';
 import { BackLink, Spinner } from '@/components/ui';
@@ -19,6 +19,7 @@ function ReadingPageInner({ id }: { id: string }) {
   const t = useT();
   const [reading, setReading] = useState<Reading | null | undefined>(undefined);
   const [starting, setStarting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     gql<{ reading: Reading | null }>(`query($id: ID!) { reading(id: $id) { ${READING_FIELDS} } }`, { id })
@@ -30,6 +31,24 @@ function ReadingPageInner({ id }: { id: string }) {
     setStarting(true);
     const { startConversation } = await gql(`mutation($id: ID) { startConversation(readingId: $id, topic: "reading") { id } }`, { id });
     router.push(`/chat/${startConversation.id}`);
+  }
+
+  // Shares the gist through the phone's share sheet (WhatsApp, Instagram...),
+  // or copies it where sharing isn't available.
+  async function share() {
+    if (!reading) return;
+    const gist = reading.interpretation.replace(/[#*_>`]/g, '').split('\n').find((l) => l.trim().length > 40)?.trim() ?? '';
+    const text = `${reading.title}\n\n${gist.length > 280 ? `${gist.slice(0, 277)}…` : gist}\n\n${t('reading.shareFooter')}`;
+    const url = window.location.origin;
+    try {
+      if (navigator.share) await navigator.share({ title: reading.title, text, url });
+      else {
+        await navigator.clipboard.writeText(`${text} ${url}`);
+        setCopied(true);
+      }
+    } catch {
+      // Closing the share sheet is not an error.
+    }
   }
 
   async function remove() {
@@ -52,30 +71,31 @@ function ReadingPageInner({ id }: { id: string }) {
           <CheckCircle2 size={18} /> {t('reading.ready')}
         </div>
       )}
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <span className="chip mb-3"><service.icon size={14} className="text-gold" /> {t(serviceKey(service, 'title'))}</span>
-          <h1 className="font-display text-4xl text-ink">{reading.title}</h1>
+          <h1 className="font-display text-2xl font-semibold leading-tight text-ink sm:text-4xl">{reading.title}</h1>
         </div>
         <div className="flex gap-2 print:hidden">
-          <button className="btn-ghost" onClick={() => window.print()} title={t('reading.print')}><Printer size={16} /></button>
-          <button className="btn-ghost" onClick={remove} title={t('common.delete')}><Trash2 size={16} /></button>
+          <button className="btn-primary flex-1 sm:flex-none" onClick={share}><Share2 size={16} /> {copied ? t('reading.copied') : t('reading.share')}</button>
+          <button className="btn-ghost hidden sm:inline-flex" onClick={() => window.print()} title={t('reading.print')} aria-label={t('reading.print')}><Printer size={16} /></button>
+          <button className="btn-ghost" onClick={remove} title={t('common.delete')} aria-label={t('common.delete')}><Trash2 size={16} /></button>
         </div>
       </div>
 
       <ReadingView reading={reading} />
 
-      <div className="card mt-10 flex flex-col items-center gap-4 border-gold/30 bg-gold/5 p-8 text-center print:hidden">
-        <MessageCircle className="text-gold" size={28} />
+      <div className="card mt-8 flex flex-col items-center gap-4 border-violet/30 bg-violet/[0.08] p-6 text-center sm:p-8 print:hidden">
+        <MessageCircle className="text-violet" size={28} />
         <div>
-          <h2 className="font-display text-2xl text-ink">{t('reading.questionsTitle')}</h2>
+          <h2 className="font-display text-xl font-semibold text-ink sm:text-2xl">{t('reading.questionsTitle')}</h2>
           <p className="mt-1 text-sm text-muted">{t('reading.questionsBody')}</p>
         </div>
-        <button className="btn-primary" onClick={discuss} disabled={starting}>{starting ? <Spinner /> : t('reading.discuss')}</button>
+        <button className="btn-primary w-full sm:w-auto" onClick={discuss} disabled={starting}>{starting ? <Spinner /> : t('reading.discuss')}</button>
       </div>
 
       <div className="mt-10 print:hidden">
-        <h2 className="mb-4 font-display text-2xl text-ink">{t('reading.alsoLike')}</h2>
+        <h2 className="mb-4 font-display text-xl font-semibold text-ink">{t('reading.alsoLike')}</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {others.map((s) => (
             <Link key={s.slug} href={`/services/${s.slug}`} className="card p-4 hover:border-gold/50">

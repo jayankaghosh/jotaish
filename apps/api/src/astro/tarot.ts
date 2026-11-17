@@ -83,11 +83,22 @@ export const SPREADS: Record<string, { label: string; positions: string[] }> = {
   },
 };
 
-export function drawSpread(spread: string) {
+// The deck is shuffled here; when the person picks cards from the face-down
+// spread, `picks` are the places they tapped (0 to 77), in order.
+export function drawSpread(spread: string, picks?: number[] | null) {
   const layout = SPREADS[spread] ?? SPREADS.three;
-  const pool = [...DECK];
-  return layout.positions.map((position) => {
-    const card = pool.splice(randomInt(pool.length), 1)[0];
+  const deck = [...DECK];
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  const valid =
+    picks?.length === layout.positions.length &&
+    new Set(picks).size === picks.length &&
+    picks.every((n) => Number.isInteger(n) && n >= 0 && n < deck.length);
+  const order = valid ? picks! : layout.positions.map((_, i) => i);
+  return layout.positions.map((position, i) => {
+    const card = deck[order[i]];
     const reversed = randomInt(4) === 0;
     return { position, card: card.name, arcana: card.arcana, reversed, meaning: reversed ? card.reversed : card.upright };
   });

@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Cormorant_Garamond, Inter, Noto_Sans_Bengali, Noto_Sans_Devanagari, Noto_Sans_Kannada, Noto_Sans_Malayalam } from 'next/font/google';
+import { Inter, Noto_Sans_Bengali, Noto_Sans_Devanagari, Noto_Sans_Kannada, Noto_Sans_Malayalam, Sora } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth';
 import { I18nProvider } from '@/lib/i18n';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const cormorant = Cormorant_Garamond({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-cormorant' });
+const sora = Sora({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-sora' });
 // Indian scripts load only when a page actually shows them.
 const devanagari = Noto_Sans_Devanagari({ subsets: ['devanagari'], variable: '--font-devanagari', preload: false });
 const malayalam = Noto_Sans_Malayalam({ subsets: ['malayalam'], variable: '--font-malayalam', preload: false });
@@ -18,10 +18,10 @@ export const metadata: Metadata = {
   appleWebApp: { title: 'Jotaish', statusBarStyle: 'black-translucent' },
 };
 
-export const viewport: Viewport = { themeColor: '#15132b' };
+export const viewport: Viewport = { themeColor: '#0c0a1c', viewportFit: 'cover' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const fonts = [inter, cormorant, devanagari, malayalam, kannada, bengali].map((f) => f.variable).join(' ');
+  const fonts = [inter, sora, devanagari, malayalam, kannada, bengali].map((f) => f.variable).join(' ');
   return (
     <html lang="en" className={fonts}>
       <body className="font-sans antialiased">
