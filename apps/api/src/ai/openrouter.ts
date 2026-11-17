@@ -53,6 +53,8 @@ export interface Completion {
   model: string;
   content: string;
   toolCalls: ToolCall[];
+  // True when the model stopped because it hit maxTokens.
+  truncated: boolean;
 }
 
 export async function complete(opts: CompletionOptions): Promise<Completion> {
@@ -85,7 +87,7 @@ export async function complete(opts: CompletionOptions): Promise<Completion> {
     if (opts.onToken && res.ok && res.body) {
       const streamed = await readStream(res.body, opts.onToken);
       usage = streamed.usage;
-      return { model: streamed.model || model, content: streamed.content, toolCalls: streamed.toolCalls };
+      return { model: streamed.model || model, content: streamed.content, toolCalls: streamed.toolCalls, truncated: streamed.finishReason === 'length' };
     }
     const json = (await res.json().catch(() => ({}))) as any;
     if (!res.ok || json.error) {
@@ -93,7 +95,12 @@ export async function complete(opts: CompletionOptions): Promise<Completion> {
     }
     usage = json.usage ?? {};
     const message = json.choices?.[0]?.message ?? {};
-    return { model: json.model ?? model, content: message.content ?? '', toolCalls: message.tool_calls ?? [] };
+    return {
+      model: json.model ?? model,
+      content: message.content ?? '',
+      toolCalls: message.tool_calls ?? [],
+      truncated: json.choices?.[0]?.finish_reason === 'length',
+    };
   } catch (e) {
     error = (e as Error).message;
     throw new AiError('Jotaish could not answer just now. Please try again in a moment.', error);
@@ -128,6 +135,7 @@ export async function readStream(body: ReadableStream<Uint8Array>, onToken: (tex
   let content = '';
   let model = '';
   let usage = {};
+  let finishReason: string | null = null;
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -150,6 +158,7 @@ export async function readStream(body: ReadableStream<Uint8Array>, onToken: (tex
       if (chunk.error) throw new Error(chunk.error.message ?? 'The stream was interrupted');
       model = chunk.model ?? model;
       if (chunk.usage) usage = chunk.usage;
+      finishReason = chunk.choices?.[0]?.finish_reason ?? finishReason;
       const delta = chunk.choices?.[0]?.delta ?? {};
       if (delta.content) {
         content += delta.content;
@@ -163,7 +172,7 @@ export async function readStream(body: ReadableStream<Uint8Array>, onToken: (tex
       }
     }
   }
-  return { content, model, usage, toolCalls: toolCalls.filter(Boolean) };
+  return { content, model, usage, finishReason, toolCalls: toolCalls.filter(Boolean) };
 }
 
 let priceCache: { at: number; prices: Map<string, { prompt: number; completion: number }> } | null = null;

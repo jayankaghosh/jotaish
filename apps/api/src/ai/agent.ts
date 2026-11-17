@@ -128,13 +128,45 @@ const TOOLS: ToolDefinition[] = [
   },
 ];
 
+const NODES = new Set(['Rahu', 'Ketu']);
+
+// The computed data behind a reading, compact enough to send with every
+// turn, so answers can come from the chart itself and not only the prose.
+function readingFacts(reading: Reading): unknown {
+  const data = reading.data as any;
+  if (reading.type === 'BIRTH_CHART') {
+    const current = data.dashas?.find((d: any) => d.current);
+    return {
+      birthTimeKnown: data.birthTimeKnown,
+      ascendant: data.ascendant,
+      moonSign: data.moonSign,
+      sunSign: data.sunSign,
+      janmaNakshatra: data.janmaNakshatra,
+      planets: data.planets?.map(
+        (p: any) =>
+          `${p.planet}: ${p.sign} ${p.degree}, house ${p.house}, ${p.nakshatra} pada ${p.pada}` +
+          `${p.retrograde && !NODES.has(p.planet) ? ', retrograde' : ''}${p.dignity ? `, ${p.dignity}` : ''}, navamsa ${p.navamsaSign}`,
+      ),
+      houses: data.houses?.map((h: any) => `${h.house}: ${h.sign}, lord ${h.lord}${h.planets.length ? `, holds ${h.planets.join(', ')}` : ''}`),
+      mahadashas: data.dashas?.map((d: any) => `${d.lord} ${d.start} to ${d.end}${d.current ? ' (current)' : ''}`),
+      currentAntardashas: current?.antardashas?.map((a: any) => `${a.lord} ${a.start} to ${a.end}${a.current ? ' (current)' : ''}`),
+      yogas: data.yogas,
+      sadeSati: data.sadeSati,
+    };
+  }
+  // Palm photos stay out; the written reading describes them.
+  if (reading.type === 'PALM') return null;
+  return data;
+}
+
 function readingResult(reading: Reading) {
   return {
     readingId: reading.id,
     type: reading.type,
     title: reading.title,
     note: 'The full report is saved in the user\'s readings and shown to them as a card. Summarise the key points briefly.',
-    report: reading.interpretation.slice(0, 6000),
+    facts: readingFacts(reading),
+    report: reading.interpretation,
   };
 }
 
@@ -162,7 +194,9 @@ async function runTool(name: string, args: any, ctx: { userId: string; conversat
       return readingResult(await readings.createDream(owner, args));
     case 'open_reading': {
       const r = await prisma.reading.findFirst({ where: { id: args.readingId, userId: ctx.userId } });
-      return r ? { title: r.title, type: r.type, createdAt: r.createdAt, input: r.type === 'PALM' ? null : r.input, report: r.interpretation.slice(0, 8000) } : { error: 'Reading not found.' };
+      return r
+        ? { title: r.title, type: r.type, createdAt: r.createdAt, input: r.type === 'PALM' ? null : r.input, facts: readingFacts(r), report: r.interpretation }
+        : { error: 'Reading not found.' };
     }
     default:
       return { error: `Unknown tool ${name}` };
@@ -186,7 +220,10 @@ async function personContext(userId: string, focusReadingId: string | null) {
       : 'No readings yet.',
   ];
   if (focus) {
-    lines.push(`The person opened this conversation to discuss their reading "${focus.title}". Its full text:\n${focus.interpretation.slice(0, 8000)}`);
+    lines.push(
+      `The person opened this conversation to discuss their reading "${focus.title}".\n` +
+        `Computed data:\n${JSON.stringify(readingFacts(focus), null, 1)}\n\nFull report:\n${focus.interpretation}`,
+    );
   }
   return lines.join('\n\n');
 }

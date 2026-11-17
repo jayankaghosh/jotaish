@@ -1,7 +1,7 @@
 import type { BirthProfile, Prisma, ReadingType } from '@prisma/client';
 import { prisma } from '../lib/db';
 import { userError } from '../lib/auth';
-import { complete, type ContentPart } from '../ai/openrouter';
+import { complete, type ChatMessage, type ContentPart } from '../ai/openrouter';
 import { REPORT_PROMPTS } from '../ai/prompts';
 import { computeBirthChart, currentTransits, SIGNS } from '../astro/vedic';
 import { drawSpread, SPREADS } from '../astro/tarot';
@@ -61,19 +61,43 @@ async function save(
   });
 }
 
+// Room for the full report. Some models spend part of this on internal
+// reasoning, so it is set well above the visible length.
+const REPORT_TOKENS: Partial<Record<keyof typeof REPORT_PROMPTS, number>> = { birth_chart: 12000, compatibility: 8000 };
+const MAX_CONTINUATIONS = 2;
+
 async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image?: string) {
   const text = `Here is the data for this reading as JSON:\n\n${JSON.stringify(payload, null, 1)}`;
   const content: string | ContentPart[] = image
     ? [{ type: 'text', text }, { type: 'image_url', image_url: { url: image } }]
     : text;
-  return complete({
-    task,
-    userId,
-    messages: [
-      { role: 'system', content: REPORT_PROMPTS[task] },
-      { role: 'user', content },
-    ],
-  });
+  const messages: ChatMessage[] = [
+    { role: 'system', content: REPORT_PROMPTS[task] },
+    { role: 'user', content },
+  ];
+  const maxTokens = REPORT_TOKENS[task] ?? 6000;
+  let reply = await complete({ task, userId, messages, maxTokens });
+  let report = reply.content;
+
+  // If the model ran out of room, ask it to carry on so a report never ends
+  // mid-sentence.
+  for (let i = 0; reply.truncated && i < MAX_CONTINUATIONS; i++) {
+    // Resume from the last complete line so the seam is clean.
+    const lastLine = report.lastIndexOf('\n');
+    if (lastLine > report.length / 2) report = report.slice(0, lastLine + 1);
+    reply = await complete({
+      task,
+      userId,
+      maxTokens,
+      messages: [
+        ...messages,
+        { role: 'assistant', content: report },
+        { role: 'user', content: 'Continue the report exactly where you stopped, without repeating anything or adding a preamble.' },
+      ],
+    });
+    report += reply.content;
+  }
+  return { model: reply.model, content: report };
 }
 
 export async function createBirthChart(owner: Owner, profileId?: string | null) {
