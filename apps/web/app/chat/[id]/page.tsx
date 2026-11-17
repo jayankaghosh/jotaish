@@ -42,7 +42,7 @@ function ConversationScreen({ id }: { id: string }) {
 
       <div className="flex min-h-0 flex-1 flex-col lg:card lg:p-6">
         {/* On phones the conversation has its own header in place of the app's. */}
-        <header className="flex items-center gap-2 border-b border-line/70 bg-night/85 px-2 py-2 backdrop-blur-xl lg:mb-4 lg:border-line lg:bg-transparent lg:px-0 lg:pb-3 lg:pt-0">
+        <header className="flex items-center gap-2 border-b border-line/70 bg-night/85 px-2 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur-xl lg:mb-4 lg:border-line lg:bg-transparent lg:px-0 lg:pb-3 lg:pt-0">
           <Link href="/chat" className="rounded-full p-2 text-muted hover:text-ink lg:hidden" aria-label={t('chat.all')}>
             <ChevronLeft size={22} />
           </Link>

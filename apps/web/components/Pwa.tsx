@@ -32,7 +32,18 @@ export function PwaProvider({ children }: { children: ReactNode }) {
       navigator.serviceWorker.register(`/sw.js?v=${process.env.NEXT_PUBLIC_BUILD_ID}`).catch(() => undefined);
     }
     const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
-    if (standalone) return;
+    if (standalone) {
+      // Safari ignores the viewport's no-zoom setting, so the installed app
+      // stops the pinch itself. In a browser tab, zoom stays available.
+      const stop = (e: Event) => e.preventDefault();
+      const twoFingers = (e: TouchEvent) => e.touches.length > 1 && e.preventDefault();
+      document.addEventListener('gesturestart', stop);
+      document.addEventListener('touchmove', twoFingers, { passive: false });
+      return () => {
+        document.removeEventListener('gesturestart', stop);
+        document.removeEventListener('touchmove', twoFingers);
+      };
+    }
     // iPhones and iPads never fire an install prompt; Safari's Share menu does it.
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (ios) setInstall('ios');

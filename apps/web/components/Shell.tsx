@@ -73,7 +73,7 @@ export function Shell({ children, wide = false, immersive = false }: ShellProps)
 
   return (
     <div className="min-h-dvh">
-      <header className={`sticky top-0 z-30 border-b border-line/60 bg-night/80 backdrop-blur-xl ${immersive ? 'hidden lg:block' : ''}`}>
+      <header className={`pt-safe sticky top-0 z-30 border-b border-line/60 bg-night/80 backdrop-blur-xl ${immersive ? 'hidden lg:block' : ''}`}>
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 lg:h-16">
           <Link href="/dashboard" aria-label={t('nav.today')}>
             <Logo />

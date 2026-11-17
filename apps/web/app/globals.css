@@ -48,6 +48,8 @@
 html {
   color-scheme: dark;
   -webkit-tap-highlight-color: transparent;
+  /* No double-tap zoom: taps act at once, as in an app. */
+  touch-action: manipulation;
 }
 
 html,
@@ -118,4 +120,8 @@ body {
 }
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+/* Room for the iPhone status bar when installed (the app draws under it). */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
 }

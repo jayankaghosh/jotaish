@@ -43,7 +43,7 @@ Our astrologer, Jotaish, is an automated assistant. Planetary positions, cards a
 
 - **You**, when signed in to your account.
 - **The Jotaish team**, through an admin console, to support you, review payments, prevent misuse and improve the service.
-- **Service providers** who help us run Jotaish: our hosting provider (DigitalOcean), the AI providers described above, our email provider (Google Gmail) to deliver our emails, and Open-Meteo, which we use to look up the place names you type when entering a birthplace.
+- **Service providers** who help us run Jotaish: our hosting provider (DigitalOcean), the AI providers described above, and our email provider (Google Gmail) to deliver our emails. Birthplaces are looked up in our own copy of the GeoNames place list, so the places you type are not sent to anyone else.
 - **Authorities**, if we are required to by law.
 
 ## Google user data

@@ -18,8 +18,8 @@ function VerifyInner() {
   const isNew = params.get('new') === '1';
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12">
-      <div className="absolute right-4 top-4"><LanguagePicker /></div>
+    <div className="relative flex min-h-dvh flex-col items-center justify-center px-4 pb-12 pt-[calc(env(safe-area-inset-top)+3rem)]">
+      <div className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)]"><LanguagePicker /></div>
       <Link href="/" className="mb-8"><Logo size="lg" /></Link>
       <div className="card w-full max-w-md p-8">
         {email ? (

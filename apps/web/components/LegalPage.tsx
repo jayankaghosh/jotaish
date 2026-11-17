@@ -11,7 +11,7 @@ export function LegalPage({ title, updated, body }: { title: string; updated: st
   const { t, lang } = useI18n();
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex h-20 max-w-3xl items-center justify-between px-4">
+      <header className="pt-safe mx-auto box-content flex h-20 max-w-3xl items-center justify-between px-4">
         <Link href="/"><Logo /></Link>
         <Link href="/" className="text-sm text-muted hover:text-gold-soft">{t('legal.back')}</Link>
       </header>
@@ -41,6 +41,10 @@ export function LegalFooter() {
         <Link href="/privacy" className="hover:text-muted">{t('footer.privacy')}</Link>
         <Link href="/terms" className="hover:text-muted">{t('footer.terms')}</Link>
         <a href="mailto:jotaish.astrologer@gmail.com" className="hover:text-muted">{t('footer.contact')}</a>
+      </p>
+      {/* Required by the GeoNames licence (CC BY 4.0). */}
+      <p className="mt-2">
+        Place data © <a href="https://www.geonames.org" className="hover:text-muted" rel="noopener">GeoNames</a> (<a href="https://creativecommons.org/licenses/by/4.0/" className="hover:text-muted" rel="noopener">CC BY 4.0</a>)
       </p>
     </footer>
   );

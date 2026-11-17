@@ -77,7 +77,7 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
   return (
     <Shell immersive>
       {/* A focused flow: its own header on phones, no tab bar. */}
-      <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-line/70 bg-night/85 px-2 py-2 backdrop-blur-xl lg:hidden">
+      <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-line/70 bg-night/85 px-2 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur-xl lg:hidden">
         <Link href="/explore" className="rounded-full p-2 text-muted hover:text-ink" aria-label={t('services.allReadings')}>
           <X size={22} />
         </Link>

@@ -35,7 +35,7 @@ function AdminLoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+    <div className="flex min-h-dvh flex-col items-center justify-center px-4 pb-12 pt-[calc(env(safe-area-inset-top)+3rem)]">
       <div className="mb-8 flex items-center gap-3">
         <Logo size="lg" />
         <span className="chip border-gold/40 text-gold-soft">Console</span>

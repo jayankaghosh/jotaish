@@ -19,7 +19,8 @@ export const metadata: Metadata = {
   appleWebApp: { title: 'Jotaish', statusBarStyle: 'black-translucent' },
 };
 
-export const viewport: Viewport = { themeColor: '#0c0a1c', viewportFit: 'cover' };
+// Fixed scale: the installed app shouldn't pinch-zoom like a web page.
+export const viewport: Viewport = { themeColor: '#0c0a1c', viewportFit: 'cover', width: 'device-width', initialScale: 1, maximumScale: 1, userScalable: false };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const fonts = [inter, sora, devanagari, malayalam, kannada, bengali].map((f) => f.variable).join(' ');

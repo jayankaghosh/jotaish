@@ -10,7 +10,7 @@ A personal astrology service: Vedic Kundli, horoscopes, compatibility, tarot, nu
 | Backend | Node.js, GraphQL Yoga, Prisma |
 | Database | PostgreSQL 17 (Docker) |
 | Language models | OpenRouter, one model per task, chosen in the admin console under Settings |
-| Astronomy | `astronomy-engine` for planetary positions, Open-Meteo for place lookup |
+| Astronomy | `astronomy-engine` for planetary positions, our own copy of GeoNames for birthplaces |
 
 ```
 apps/
@@ -63,7 +63,10 @@ cp apps/api/.env.example apps/api/.env      # then set APP_SECRET and ADMIN_PASS
 cp apps/web/.env.example apps/web/.env.local
 npm run db:migrate
 npm run db:seed
+npm run places:import -w apps/api
 ```
+
+`places:import` loads the birthplace list (every town and village in India, and towns of 1,000+ people elsewhere) from [GeoNames](https://www.geonames.org) into the database. It takes about a minute and can be run again at any time to refresh the list. The data is CC BY 4.0, so the site footer credits GeoNames.
 
 Start both servers in separate terminals:
 

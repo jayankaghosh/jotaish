@@ -203,3 +203,26 @@ model EmailLog {
 
   @@index([createdAt])
 }
+
+// Towns and villages from GeoNames (CC BY 4.0), loaded by `npm run places:import`.
+model Place {
+  id         Int         @id // GeoNames id
+  name       String
+  label      String // "Rampur, Bareilly, Uttar Pradesh, India"
+  country    String // ISO code
+  latitude   Float
+  longitude  Float
+  timezone   String
+  population Int         @default(0)
+  names      PlaceName[]
+}
+
+// Every name a place is searched by (English, old names, Indian scripts),
+// in normalised form. Searched by prefix.
+model PlaceName {
+  placeId Int
+  place   Place  @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  name    String
+
+  @@id([placeId, name])
+}

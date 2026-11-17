@@ -51,7 +51,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-line/70 bg-night/90 backdrop-blur">
+      <header className="pt-safe sticky top-0 z-30 border-b border-line/70 bg-night/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
           <Link href="/admin" className="flex items-center gap-3">
             <Logo />

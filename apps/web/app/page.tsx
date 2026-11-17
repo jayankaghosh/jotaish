@@ -25,7 +25,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-dvh overflow-x-hidden">
-      <header className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:h-20">
+      <header className="pt-safe mx-auto box-content flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:h-20">
         <Logo />
         <div className="flex items-center gap-1 sm:gap-2">
           <LanguagePicker compact />
