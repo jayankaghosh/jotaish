@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Eye, Gauge, IndianRupee, KeyRound, Plus, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, Eye, Gauge, IndianRupee, KeyRound, Mail, Plus, Trash2, XCircle } from 'lucide-react';
 import { imageToDataUrl } from '@/lib/image';
 import { AdminShell } from '@/components/AdminShell';
 import { ErrorNote, PageTitle, Spinner, Tip } from '@/components/ui';
@@ -18,13 +18,26 @@ interface Settings {
   creditLimit: number | null;
   creditPeriod: 'day' | 'month' | 'total';
   creditUsd: number;
+  mail: MailSettings;
   payment: { upiId: string; payeeName: string; qrCode: string | null; packs: { rupees: number; credits: number }[] };
   tasks: TaskSetting[];
   recommendedModels: Recommended[];
 }
+interface MailSettings {
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  passwordSet: boolean;
+  fromName: string;
+  fromEmail: string;
+  adminEmails: string;
+  requireVerification: boolean;
+  configured: boolean;
+}
 interface CatalogModel { id: string; name: string; promptPrice: number; completionPrice: number; vision: boolean; tools: boolean }
 
-const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
+const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } mail { host port secure username passwordSet fromName fromEmail adminEmails requireVerification configured } tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
 
 export default function AdminSettings() {
   const { refresh } = useAuth();
@@ -83,7 +96,7 @@ export default function AdminSettings() {
 
   return (
     <AdminShell>
-      <PageTitle title="AI settings" subtitle="Connect OpenRouter and choose which model handles each kind of reading." />
+      <PageTitle title="Settings" subtitle="AI models and allowances, selling credits, and email." />
 
       <div className="space-y-6">
         <section className="card p-6">
@@ -126,6 +139,8 @@ export default function AdminSettings() {
         <LimitSettings settings={settings} onSaved={apply} />
 
         <PaymentSettings settings={settings} onSaved={apply} />
+
+        <EmailSettings settings={settings} onSaved={apply} />
 
         <section className="card p-6">
           <h2 className="font-display text-2xl text-ink">Model for each task</h2>
@@ -403,6 +418,159 @@ function PaymentSettings({ settings, onSaved }: { settings: Settings; onSaved: (
         {saved && <span className="text-sm text-ok">Saved.</span>}
       </div>
       <div className="mt-3"><ErrorNote message={error} /></div>
+    </section>
+  );
+}
+
+function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s: Settings) => void }) {
+  const m = settings.mail;
+  const [form, setForm] = useState({
+    host: m.host,
+    port: String(m.port),
+    secure: m.secure,
+    username: m.username,
+    fromName: m.fromName,
+    fromEmail: m.fromEmail,
+    adminEmails: m.adminEmails,
+    requireVerification: m.requireVerification,
+  });
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [testTo, setTestTo] = useState(m.adminEmails.split(/[,;\s]+/)[0] || m.username);
+  const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  const set = (patch: Partial<typeof form>) => {
+    setForm({ ...form, ...patch });
+    setSaved(false);
+  };
+
+  function useGmail() {
+    set({ host: 'smtp.gmail.com', port: '465', secure: true, fromEmail: form.fromEmail || form.username });
+  }
+
+  async function save() {
+    setBusy(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const { updateSettings } = await gql<{ updateSettings: Settings }>(`mutation($input: SettingsInput!) { updateSettings(input: $input) { ${SETTINGS_FIELDS} } }`, {
+        input: { mail: { ...form, port: Number(form.port), password: password || null } },
+      });
+      onSaved(updateSettings);
+      setPassword('');
+      setSaved(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendTest() {
+    setTesting(true);
+    setTest(null);
+    try {
+      await gql(`mutation($to: String!) { sendTestEmail(to: $to) }`, { to: testTo });
+      setTest({ ok: true, message: `Sent. Check the inbox of ${testTo}.` });
+    } catch (e) {
+      setTest({ ok: false, message: (e as Error).message });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <section className="card p-6">
+      <div className="mb-1 flex flex-wrap items-center gap-3">
+        <Mail className="text-gold" />
+        <h2 className="font-display text-2xl text-ink">Email (SMTP)</h2>
+        {m.configured ? <span className="chip border-ok/40 text-ok">Set up</span> : <span className="chip border-danger/40 text-danger">Not set up</span>}
+      </div>
+      <p className="mb-4 text-sm text-muted">
+        Used to send readings as PDFs, payment updates, email confirmation codes, admin alerts and your own messages from the Emails page.
+      </p>
+      <div className="mb-5">
+        <Tip>
+          <strong>Using Gmail:</strong> click &quot;Use Gmail&quot;, enter your Gmail address as the username, and use an <strong>App Password</strong> instead of your normal
+          password. Create one at{' '}
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-gold underline">myaccount.google.com/apppasswords</a>{' '}
+          (2-Step Verification must be on). Gmail sends up to about 500 emails a day.
+        </Tip>
+      </div>
+      <button type="button" className="btn-ghost mb-5" onClick={useGmail}>Use Gmail</button>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="label" htmlFor="smtp-host">SMTP server</label>
+          <input id="smtp-host" className="input" placeholder="smtp.gmail.com" value={form.host} onChange={(e) => set({ host: e.target.value })} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label" htmlFor="smtp-port">Port</label>
+            <input id="smtp-port" className="input" inputMode="numeric" value={form.port} onChange={(e) => set({ port: e.target.value.replace(/\D/g, ''), secure: e.target.value === '465' ? true : e.target.value === '587' ? false : form.secure })} />
+          </div>
+          <div>
+            <label className="label" htmlFor="smtp-sec">Security</label>
+            <select id="smtp-sec" className="input" value={form.secure ? 'ssl' : 'starttls'} onChange={(e) => set({ secure: e.target.value === 'ssl' })}>
+              <option value="ssl">SSL (port 465)</option>
+              <option value="starttls">STARTTLS (port 587)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="label" htmlFor="smtp-user">Username</label>
+          <input id="smtp-user" className="input" placeholder="you@gmail.com" value={form.username} onChange={(e) => set({ username: e.target.value })} autoComplete="off" />
+        </div>
+        <div>
+          <label className="label" htmlFor="smtp-pass">Password {m.passwordSet && <span className="font-normal text-faint">(saved; leave empty to keep it)</span>}</label>
+          <input id="smtp-pass" className="input" type="password" placeholder={m.passwordSet ? '••••••••••••••••' : 'App password'} value={password} onChange={(e) => { setPassword(e.target.value); setSaved(false); }} autoComplete="new-password" />
+        </div>
+        <div>
+          <label className="label" htmlFor="smtp-from-name">Sender name</label>
+          <input id="smtp-from-name" className="input" value={form.fromName} onChange={(e) => set({ fromName: e.target.value })} />
+        </div>
+        <div>
+          <label className="label" htmlFor="smtp-from">Sender address</label>
+          <input id="smtp-from" className="input" placeholder="Usually the same as the username" value={form.fromEmail} onChange={(e) => set({ fromEmail: e.target.value })} />
+          <p className="hint">Gmail only sends from your own address (or an alias you have added in Gmail).</p>
+        </div>
+        <div className="md:col-span-2">
+          <label className="label" htmlFor="smtp-admins">Send admin alerts to</label>
+          <input id="smtp-admins" className="input" placeholder="you@gmail.com, partner@example.com" value={form.adminEmails} onChange={(e) => set({ adminEmails: e.target.value })} />
+          <p className="hint">New payments to check and customers running out of credits. Separate several addresses with commas.</p>
+        </div>
+      </div>
+
+      <label className="mt-5 flex items-start gap-3 text-sm text-ink">
+        <input type="checkbox" className="mt-1 accent-[var(--color-gold)]" checked={form.requireVerification} onChange={(e) => set({ requireVerification: e.target.checked })} />
+        <span>
+          Customers must confirm their email address
+          <span className="block text-xs text-muted">New customers get a 6-digit code and can sign in only after entering it. Existing customers are asked once. Only applies while email is set up; admins are never asked.</span>
+        </span>
+      </label>
+
+      <div className="mt-5 flex items-center gap-3">
+        <button className="btn-primary" onClick={save} disabled={busy}>{busy ? <Spinner /> : 'Save email settings'}</button>
+        {saved && <span className="text-sm text-ok">Saved.</span>}
+      </div>
+      <div className="mt-3"><ErrorNote message={error} /></div>
+
+      <div className="mt-6 border-t border-line pt-5">
+        <label className="label" htmlFor="smtp-test">Send a test email to</label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input id="smtp-test" className="input sm:max-w-sm" value={testTo} onChange={(e) => setTestTo(e.target.value)} />
+          <button className="btn-ghost" onClick={sendTest} disabled={testing || !m.configured || !testTo}>{testing ? <Spinner /> : 'Send test email'}</button>
+        </div>
+        {!m.configured && <p className="hint">Save the settings first.</p>}
+        {test && (
+          <p className={`mt-2 flex items-center gap-1.5 text-sm ${test.ok ? 'text-ok' : 'text-danger'}`}>
+            {test.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />} {test.message}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

@@ -7,6 +7,7 @@ import { computeBirthChart, currentTransits, SIGNS } from '../astro/vedic';
 import { drawSpread, SPREADS } from '../astro/tarot';
 import { computeNumerology } from '../astro/numerology';
 import { isValidDate, localToUtc } from '../astro/time';
+import { emailReading } from './notifications';
 
 interface Owner {
   userId: string;
@@ -46,7 +47,7 @@ async function save(
   model: string,
   profileId?: string,
 ) {
-  return prisma.reading.create({
+  const reading = await prisma.reading.create({
     data: {
       userId: owner.userId,
       conversationId: owner.conversationId ?? null,
@@ -59,6 +60,8 @@ async function save(
       model,
     },
   });
+  emailReading(reading.id);
+  return reading;
 }
 
 // Room for the full report. Some models spend part of this on internal

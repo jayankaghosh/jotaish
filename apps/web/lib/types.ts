@@ -24,6 +24,8 @@ export interface User {
   profiles: BirthProfile[];
   readingCount: number;
   conversationCount: number;
+  emailVerified?: boolean;
+  needsVerification?: boolean;
   creditLimit?: number | null;
   unlimitedCredits?: boolean;
   usage?: Usage | null;

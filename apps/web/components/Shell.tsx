@@ -7,6 +7,7 @@ import { BookOpen, Coins, LayoutGrid, LogOut, Menu, MessageCircle, User as UserI
 import { useAuth } from '@/lib/auth';
 import { Logo } from './Logo';
 import { Spinner } from './ui';
+import { VerifyCode } from './VerifyCode';
 
 const NAV = [
   { href: '/dashboard', label: 'Home', icon: LayoutGrid },
@@ -17,7 +18,7 @@ const NAV = [
 ];
 
 export function Shell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
-  const { user, loading, signOut, aiReady } = useAuth();
+  const { user, loading, signOut, aiReady, signIn } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -96,7 +97,20 @@ export function Shell({ children, wide = false }: { children: ReactNode; wide?: 
           Readings are being set up and will be available shortly. You can still save your birth details.
         </div>
       )}
-      <main className={`mx-auto px-4 py-8 ${wide ? 'max-w-7xl' : 'max-w-6xl'}`}>{children}</main>
+      {user.needsVerification ? (
+        // Accounts created before email confirmation existed get asked once.
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-night/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="card w-full max-w-md p-8">
+            <p className="mb-4 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-center text-sm text-gold-soft">
+              Your email address isn&apos;t confirmed yet. Please confirm it to keep using Jotaish.
+            </p>
+            <VerifyCode email={user.email} sendOnOpen onVerified={async (token) => { await signIn(token); }} />
+            <button className="mt-4 w-full text-center text-xs text-faint hover:text-muted" onClick={() => { signOut(); router.push('/'); }}>Sign out</button>
+          </div>
+        </div>
+      ) : (
+        <main className={`mx-auto px-4 py-8 ${wide ? 'max-w-7xl' : 'max-w-6xl'}`}>{children}</main>
+      )}
     </div>
   );
 }

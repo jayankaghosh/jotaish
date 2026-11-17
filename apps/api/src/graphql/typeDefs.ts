@@ -27,6 +27,9 @@ export const typeDefs = /* GraphQL */ `
     profiles: [BirthProfile!]!
     readingCount: Int!
     conversationCount: Int!
+    emailVerified: Boolean!
+    # True when this person must enter the emailed code before continuing.
+    needsVerification: Boolean!
     # Credit allowance override. Null when the default applies.
     creditLimit: Int
     unlimitedCredits: Boolean!
@@ -52,8 +55,10 @@ export const typeDefs = /* GraphQL */ `
   }
 
   type AuthPayload {
-    token: String!
+    # Null when the email still has to be confirmed.
+    token: String
     user: User!
+    verificationRequired: Boolean!
   }
 
   type BirthProfile {
@@ -176,6 +181,29 @@ export const typeDefs = /* GraphQL */ `
     packs: [CreditPack!]!
   }
 
+  type MailSettings {
+    host: String!
+    port: Int!
+    secure: Boolean!
+    username: String!
+    passwordSet: Boolean!
+    fromName: String!
+    fromEmail: String!
+    adminEmails: String!
+    requireVerification: Boolean!
+    configured: Boolean!
+  }
+
+  type EmailLogEntry {
+    id: ID!
+    to: String!
+    subject: String!
+    kind: String!
+    status: String!
+    error: String
+    createdAt: String!
+  }
+
   type AiTaskSetting {
     task: String!
     label: String!
@@ -202,6 +230,7 @@ export const typeDefs = /* GraphQL */ `
     creditPeriod: String!
     creditUsd: Float!
     payment: PaymentSettings!
+    mail: MailSettings!
     tasks: [AiTaskSetting!]!
     recommendedModels: [RecommendedModel!]!
   }
@@ -326,6 +355,19 @@ export const typeDefs = /* GraphQL */ `
     packs: [CreditPackInput!]
   }
 
+  input MailSettingsInput {
+    host: String
+    port: Int
+    secure: Boolean
+    username: String
+    password: String
+    clearPassword: Boolean
+    fromName: String
+    fromEmail: String
+    adminEmails: String
+    requireVerification: Boolean
+  }
+
   input SettingsInput {
     apiKey: String
     clearApiKey: Boolean
@@ -333,6 +375,7 @@ export const typeDefs = /* GraphQL */ `
     models: [ModelSettingInput!]
     limits: LimitSettingsInput
     payment: PaymentSettingsInput
+    mail: MailSettingsInput
   }
 
   type Query {
@@ -362,12 +405,17 @@ export const typeDefs = /* GraphQL */ `
     adminPendingPayments: Int!
     adminUserPayments(userId: ID!): [PaymentRequest!]!
     adminUserGrants(userId: ID!): [CreditGrant!]!
+    adminEmailLog(kind: String, take: Int): [EmailLogEntry!]!
     openRouterModels: [CatalogModel!]!
   }
 
   type Mutation {
     register(input: RegisterInput!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
+    # Confirms the 6-digit code and signs the person in.
+    verifyEmail(email: String!, code: String!): AuthPayload!
+    # Emails a new code (at most once a minute). Always returns true.
+    resendVerificationCode(email: String!): Boolean!
     updateMe(name: String): User!
     changePassword(current: String!, next: String!): Boolean!
     saveProfile(input: ProfileInput!): BirthProfile!
@@ -392,6 +440,11 @@ export const typeDefs = /* GraphQL */ `
     reviewPayment(id: ID!, approve: Boolean!, credits: Int, note: String): PaymentRequest!
     # Positive adds credits, negative removes them.
     grantCredits(userId: ID!, credits: Int!, note: String): User!
+    sendTestEmail(to: String!): Boolean!
+    # Emails the chosen users (or everyone who isn't blocked). Sending happens
+    # in the background; returns how many emails were queued.
+    sendEmailToUsers(userIds: [ID!], everyone: Boolean, subject: String!, body: String!): Int!
+    markEmailVerified(userId: ID!): User!
   }
 
   type Subscription {

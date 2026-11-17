@@ -3,13 +3,17 @@ import { createSchema, createYoga } from 'graphql-yoga';
 import { env } from './lib/env';
 import { userFromHeader, type Context } from './lib/auth';
 import { typeDefs } from './graphql/typeDefs';
+import { needsVerification } from './services/verification';
 import { resolvers } from './graphql/resolvers';
 
 const yoga = createYoga<{}, Context>({
   schema: createSchema({ typeDefs, resolvers }),
   cors: { origin: env.webOrigin, credentials: true },
   graphqlEndpoint: '/graphql',
-  context: async ({ request }) => ({ user: await userFromHeader(request.headers.get('authorization')) }),
+  context: async ({ request }) => {
+    const user = await userFromHeader(request.headers.get('authorization'));
+    return { user, unverified: user ? await needsVerification(user) : false };
+  },
   // Show user-facing messages; Yoga hides unexpected errors by default.
   maskedErrors: {
     maskError: (error, message) => {

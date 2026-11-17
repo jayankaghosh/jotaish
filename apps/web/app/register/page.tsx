@@ -20,7 +20,11 @@ export default function RegisterPage() {
     setBusy(true);
     setError(null);
     try {
-      const { register } = await gql(`mutation($input: RegisterInput!) { register(input: $input) { token } }`, { input: form });
+      const { register } = await gql(`mutation($input: RegisterInput!) { register(input: $input) { token verificationRequired } }`, { input: form });
+      if (register.verificationRequired) {
+        router.replace(`/verify?new=1&email=${encodeURIComponent(form.email.trim().toLowerCase())}`);
+        return;
+      }
       await signIn(register.token);
       router.replace('/welcome');
     } catch (err) {

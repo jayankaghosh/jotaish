@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql';
 import { prisma } from '../lib/db';
 import { userError } from '../lib/auth';
+import { emailPaymentReviewed, emailPaymentSubmitted } from './notifications';
 
 export interface CreditPack {
   rupees: number;
@@ -108,7 +109,9 @@ export async function submitPayment(userId: string, input: { credits: number; ru
   if (input.screenshot.length > MAX_IMAGE) throw userError('That screenshot is too large. Please use one under 2 MB.');
   const pending = await prisma.paymentRequest.count({ where: { userId, status: 'pending' } });
   if (pending >= 5) throw userError('You already have several payments waiting to be checked. Please wait until they are verified.');
-  return prisma.paymentRequest.create({ data: { userId, credits: q.credits!, rupees: q.rupees!, screenshot: input.screenshot } });
+  const payment = await prisma.paymentRequest.create({ data: { userId, credits: q.credits!, rupees: q.rupees!, screenshot: input.screenshot } });
+  emailPaymentSubmitted(payment);
+  return payment;
 }
 
 export async function grantCredits(userId: string, credits: number, adminId: string, note?: string | null, paymentId?: string | null) {
@@ -152,5 +155,7 @@ export async function reviewPayment(id: string, adminId: string, approve: boolea
       throw e;
     }
   }
-  return prisma.paymentRequest.findUniqueOrThrow({ where: { id } });
+  const reviewed = await prisma.paymentRequest.findUniqueOrThrow({ where: { id } });
+  emailPaymentReviewed(reviewed);
+  return reviewed;
 }

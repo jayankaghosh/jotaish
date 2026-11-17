@@ -54,10 +54,19 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="font-display text-4xl text-ink">{user.name}</h1>
-              <p className="text-muted">{user.email} · joined {formatDate(user.createdAt)} · last seen {user.lastSeenAt ? formatDate(user.lastSeenAt, true) : 'never'}</p>
+              <p className="text-muted">
+                {user.email}{' '}
+                {user.role !== 'ADMIN' && (user.emailVerified ? <span className="chip border-ok/40 text-ok">Email confirmed</span> : <span className="chip border-gold/40 text-gold-soft">Email not confirmed</span>)}
+              </p>
+              <p className="text-muted">Joined {formatDate(user.createdAt)} · last seen {user.lastSeenAt ? formatDate(user.lastSeenAt, true) : 'never'}</p>
             </div>
             {me?.id !== user.id && (
               <div className="flex gap-2">
+                {!user.emailVerified && user.role !== 'ADMIN' && (
+                  <button className="btn-ghost" onClick={() => update(`mutation($id: ID!) { markEmailVerified(userId: $id) { emailVerified needsVerification } }`, { id })}>
+                    Mark email confirmed
+                  </button>
+                )}
                 <button className="btn-ghost" onClick={() => update(`mutation($id: ID!, $role: Role!) { setUserRole(userId: $id, role: $role) { role } }`, { id, role: user.role === 'ADMIN' ? 'USER' : 'ADMIN' })}>
                   {user.role === 'ADMIN' ? 'Remove admin' : 'Make admin'}
                 </button>
@@ -192,7 +201,7 @@ function LimitCard({ user, onChange }: { user: User; onChange: (u: Partial<User>
         <>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {([
-              ['default', 'Use the default', 'Follows the allowance in AI settings.'],
+              ['default', 'Use the default', 'Follows the allowance in Settings.'],
               ['custom', 'Custom allowance', 'A different number of credits for this user.'],
               ['unlimited', 'Unlimited', 'No limit for this user.'],
             ] as const).map(([key, title, body]) => (
@@ -211,7 +220,7 @@ function LimitCard({ user, onChange }: { user: User; onChange: (u: Partial<User>
             <div className="mt-4">
               <label className="label" htmlFor="user-limit">Credits {usage ? `per ${usage.period === 'total' ? 'account (never resets)' : usage.period}` : ''}</label>
               <input id="user-limit" className="input sm:w-32" inputMode="numeric" value={limit} onChange={(e) => { setLimit(e.target.value); setSaved(false); }} />
-              <p className="hint">1 credit = $0.001 of AI cost. The period is the same as the default one in AI settings.</p>
+              <p className="hint">1 credit = $0.001 of AI cost. The period is the same as the default one in Settings.</p>
             </div>
           )}
           <div className="mt-4 flex items-center gap-3">

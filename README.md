@@ -9,7 +9,7 @@ A personal astrology service: Vedic Kundli, horoscopes, compatibility, tarot, nu
 | Frontend | Next.js 15 (App Router), React 19, Tailwind CSS 4 |
 | Backend | Node.js, GraphQL Yoga, Prisma |
 | Database | PostgreSQL 17 (Docker) |
-| Language models | OpenRouter, one model per task, chosen in Admin > AI settings |
+| Language models | OpenRouter, one model per task, chosen in the admin console under Settings |
 | Astronomy | `astronomy-engine` for planetary positions, Open-Meteo for place lookup |
 
 ```
@@ -55,7 +55,7 @@ npm run dev:api
 npm run dev:web
 ```
 
-Open the admin console at http://localhost:3000/admin/login, sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `apps/api/.env`, go to **AI settings** and paste an OpenRouter API key. Readings work once the key is saved. The customer site is at http://localhost:3000.
+Open the admin console at http://localhost:3000/admin/login, sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `apps/api/.env`, go to **Settings** and paste an OpenRouter API key. Readings work once the key is saved. The customer site is at http://localhost:3000.
 
 ## Admin console
 
@@ -65,10 +65,12 @@ The console lives at `/admin` with its own sign-in page and header. Nothing in t
 - **Overview**: users, readings by type, AI calls, token use and cost per model, recent calls with errors.
 - **Users**: search, open a user to see their birth details, every reading and every conversation (including which tools the astrologer called and which models answered). Promote to admin or disable an account.
 - **Users > a user**: block or unblock the account (blocked users are signed out and can't sign in), and set their AI allowance: the default, a custom number of credits, or unlimited.
-- **AI allowance**: every user gets a default number of credits per day, month or in total (set in AI settings). Credits follow the real OpenRouter cost of each call made for that user (1 credit = $0.001), so heavier models and long reports use more. When a cost isn't reported it is estimated from the model's catalogue price. Customers only see the percentage of their allowance left; admins are never limited.
-- **Selling credits**: in AI settings, set a UPI ID, upload the QR code and fill the price table (₹ to credits). Customers buy on the Credits page in three steps: choose an amount (only whole multiples of a row, with the nearest valid amounts suggested), pay by UPI, then upload a screenshot. Bought credits are used after the free allowance and never expire.
+- **AI allowance**: every user gets a default number of credits per day, month or in total (set in Settings). Credits follow the real OpenRouter cost of each call made for that user (1 credit = $0.001), so heavier models and long reports use more. When a cost isn't reported it is estimated from the model's catalogue price. Customers only see the percentage of their allowance left; admins are never limited.
+- **Selling credits**: in Settings, set a UPI ID, upload the QR code and fill the price table (₹ to credits). Customers buy on the Credits page in three steps: choose an amount (only whole multiples of a row, with the nearest valid amounts suggested), pay by UPI, then upload a screenshot. Bought credits are used after the free allowance and never expire.
 - **Payments**: every screenshot waits in the Payments tab (with a count in the header). Approve to add the credits (the requested number or a different one), or reject with a reason. Customers see each screenshot they sent with its outcome: credits added, or the rejection reason. Each user's page also lets you give or remove credits by hand, with every change kept in a history.
-- **AI settings**: OpenRouter key (encrypted with AES-256-GCM using `APP_SECRET`), a model per task with live pricing from the OpenRouter catalogue, and a temperature control.
+- **Email**: in Settings, add SMTP details (a "Use Gmail" button fills in smtp.gmail.com; Gmail needs an App Password) and send a test. Once set up, customers get every new reading as a PDF attachment and updates on their payments; admins get an alert for each new payment and when a customer's bought credits run out. The Emails page sends your own message to chosen users or everyone (`{name}` becomes their first name) and keeps a log of every email.
+- **Email confirmation**: while email is set up, new customers confirm their address with a 6-digit code before they can sign in, and existing customers are asked once by a pop-up. Admins are never asked, and an admin can mark an address as confirmed from the user's page.
+- **Settings**: OpenRouter key (encrypted with AES-256-GCM using `APP_SECRET`), a model per task with live pricing from the OpenRouter catalogue, and a temperature control.
 
 ## Not built yet
 

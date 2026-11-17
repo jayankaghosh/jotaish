@@ -9,6 +9,9 @@ import { saveProfile, type ProfileInput } from '../services/profiles';
 import * as readings from '../services/readings';
 import { CREDIT_USD, assertCanInteract, getLimitSettings, setLimitSettings, usageFor } from '../services/limits';
 import { getPaymentSettings, grantCredits, quote, reviewPayment, setPaymentSettings, submitPayment } from '../services/payments';
+import { getMailSettings, isConfigured, sendTestMail, setMailSettings } from '../services/mail';
+import { campaignEmail } from '../services/notifications';
+import { confirmCode, forgetVerificationSetting, needsVerification, notVerifiedError, sendCode } from '../services/verification';
 import { greeting, sendMessage, streamMessage, type ChatEvent } from '../ai/agent';
 import { AiError, complete, listOpenRouterModels } from '../ai/openrouter';
 import {
@@ -46,12 +49,13 @@ const JSONScalar = new GraphQLScalarType({
 });
 
 async function adminSettings() {
-  const [models, stored, temperature, limits, payment] = await Promise.all([
+  const [models, stored, temperature, limits, payment, mail] = await Promise.all([
     getModels(),
     prisma.setting.findUnique({ where: { key: 'openrouter_api_key' } }),
     getTemperature(),
     getLimitSettings(),
     getPaymentSettings(),
+    getMailSettings(),
   ]);
   const key = await getApiKey();
   return {
@@ -63,6 +67,7 @@ async function adminSettings() {
     creditPeriod: limits.period,
     creditUsd: CREDIT_USD,
     payment,
+    mail: { ...mail, password: undefined, passwordSet: Boolean(mail.password), configured: isConfigured(mail) },
     tasks: (Object.keys(AI_TASKS) as AiTask[]).map((task) => ({ task, ...AI_TASKS[task], needs: [...AI_TASKS[task].needs], model: models[task] })),
     recommendedModels: RECOMMENDED_MODELS,
   };
@@ -114,6 +119,8 @@ export const resolvers = {
     profiles: (u: { id: string }) => prisma.birthProfile.findMany({ where: { userId: u.id }, orderBy: { createdAt: 'asc' } }),
     readingCount: (u: { id: string }) => prisma.reading.count({ where: { userId: u.id } }),
     conversationCount: (u: { id: string }) => prisma.conversation.count({ where: { userId: u.id } }),
+    emailVerified: (u: User) => Boolean(u.emailVerifiedAt),
+    needsVerification: (u: User) => needsVerification(u),
     usage: (u: User, _: unknown, ctx: Context) => (ctx.user && (ctx.user.id === u.id || ctx.user.role === 'ADMIN') ? usageFor(u) : null),
   },
   Usage: { resetsAt: iso('resetsAt') },
@@ -122,6 +129,7 @@ export const resolvers = {
     reviewedAt: iso('reviewedAt'),
     user: (p: { userId: string }, _: unknown, ctx: Context) => (ctx.user?.role === 'ADMIN' ? prisma.user.findUnique({ where: { id: p.userId } }) : null),
   },
+  EmailLogEntry: { createdAt: iso('createdAt') },
   CreditGrant: {
     createdAt: iso('createdAt'),
     grantedBy: async (g: { grantedById: string | null }) =>
@@ -258,6 +266,10 @@ export const resolvers = {
       requireAdmin(ctx);
       return prisma.creditGrant.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 50 });
     },
+    adminEmailLog: (_: unknown, { kind, take }: { kind?: string; take?: number }, ctx: Context) => {
+      requireAdmin(ctx);
+      return prisma.emailLog.findMany({ where: kind ? { kind } : {}, orderBy: { createdAt: 'desc' }, take: Math.min(take ?? 50, 200) });
+    },
     adminSettings: (_: unknown, __: unknown, ctx: Context) => {
       requireAdmin(ctx);
       return adminSettings();
@@ -286,14 +298,35 @@ export const resolvers = {
       const user = await prisma.user.create({
         data: { email, name: input.name.trim(), passwordHash: await bcrypt.hash(input.password, 10), lastSeenAt: new Date() },
       });
-      return { token: signToken(user.id), user };
+      if (await needsVerification(user)) {
+        await sendCode(user);
+        return { token: null, user, verificationRequired: true };
+      }
+      return { token: signToken(user.id), user, verificationRequired: false };
     },
     login: async (_: unknown, { email, password }: { email: string; password: string }) => {
       const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
       if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw userError('That email and password do not match. Please try again.');
       if (user.disabled) throw userError('This account has been blocked. If you think this is a mistake, please contact us.');
+      // Only confirmed emails can sign in; a fresh code goes out each time.
+      if (await needsVerification(user)) {
+        await sendCode(user);
+        throw notVerifiedError(user.email);
+      }
       await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
-      return { token: signToken(user.id), user };
+      return { token: signToken(user.id), user, verificationRequired: false };
+    },
+    verifyEmail: async (_: unknown, { email, code }: { email: string; code: string }) => {
+      const user = await confirmCode(email, code);
+      if (user.disabled) throw userError('This account has been blocked. If you think this is a mistake, please contact us.');
+      await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
+      return { token: signToken(user.id), user, verificationRequired: false };
+    },
+    resendVerificationCode: async (_: unknown, { email }: { email: string }) => {
+      const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+      // Same answer whether or not the account exists.
+      if (user && !user.disabled && (await needsVerification(user))) await sendCode(user);
+      return true;
     },
     updateMe: (_: unknown, { name }: { name?: string }, ctx: Context) => {
       const user = requireUser(ctx);
@@ -355,6 +388,10 @@ export const resolvers = {
       if (typeof input.temperature === 'number') await setTemperature(input.temperature);
       if (input.limits) await setLimitSettings(input.limits);
       if (input.payment) await setPaymentSettings(input.payment);
+      if (input.mail) {
+        await setMailSettings(input.mail);
+        forgetVerificationSetting();
+      }
       if (input.models?.length) {
         const valid = input.models.filter((m: { task: string; model: string }) => m.task in AI_TASKS && m.model.trim());
         await setModels(Object.fromEntries(valid.map((m: { task: string; model: string }) => [m.task, m.model.trim()])));
@@ -390,6 +427,42 @@ export const resolvers = {
       reviewPayment(args.id, requireAdmin(ctx).id, args.approve, args.credits, args.note),
     grantCredits: (_: unknown, args: { userId: string; credits: number; note?: string }, ctx: Context) =>
       grantCredits(args.userId, args.credits, requireAdmin(ctx).id, args.note),
+    sendTestEmail: async (_: unknown, { to }: { to: string }, ctx: Context) => {
+      requireAdmin(ctx);
+      try {
+        await sendTestMail(to.trim());
+      } catch (e) {
+        // Turn SMTP errors into something an admin can act on.
+        const message = (e as Error).message;
+        if (/Invalid login|Username and Password not accepted|535/i.test(message)) {
+          throw userError('The email server rejected the username or password. For Gmail, use an App Password, not your normal password.');
+        }
+        throw userError(`Could not send the test email: ${message}`);
+      }
+      return true;
+    },
+    sendEmailToUsers: async (_: unknown, args: { userIds?: string[]; everyone?: boolean; subject: string; body: string }, ctx: Context) => {
+      requireAdmin(ctx);
+      if (!args.subject.trim() || !args.body.trim()) throw userError('Please write a subject and a message.');
+      if (!isConfigured(await getMailSettings())) throw userError('Email is not set up yet. Add your SMTP details in AI settings first.');
+      const users = await prisma.user.findMany({
+        where: { disabled: false, ...(args.everyone ? {} : { id: { in: args.userIds ?? [] } }) },
+        select: { id: true, name: true, email: true },
+      });
+      if (!users.length) throw userError('Please choose at least one person.');
+      // Send one at a time in the background; mail providers limit bursts.
+      void (async () => {
+        for (const u of users) {
+          await campaignEmail(u, args.subject.trim(), args.body);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      })();
+      return users.length;
+    },
+    markEmailVerified: (_: unknown, { userId }: { userId: string }, ctx: Context) => {
+      requireAdmin(ctx);
+      return prisma.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date(), verifyCodeHash: null } });
+    },
     setUserLimit: async (_: unknown, { userId, mode, limit }: { userId: string; mode: string; limit?: number | null }, ctx: Context) => {
       requireAdmin(ctx);
       if (mode === 'unlimited') return prisma.user.update({ where: { id: userId }, data: { unlimitedCredits: true, creditLimit: null } });

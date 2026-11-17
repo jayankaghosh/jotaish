@@ -10,9 +10,15 @@ export function Spinner({ size = 18 }: { size?: number }) {
   return <Loader2 size={size} className="animate-spin text-gold" />;
 }
 
-export function Markdown({ children }: { children: string }) {
+const MARKDOWN_TONES = {
+  dark: 'prose prose-invert max-w-none prose-headings:font-display prose-headings:text-gold-soft prose-h2:text-2xl prose-h3:text-xl prose-strong:text-ink prose-a:text-gold prose-li:marker:text-gold/70',
+  // For previews of emails, which are light.
+  light: 'prose prose-sm max-w-none text-[#2a2540] prose-headings:text-[#15132b] prose-strong:text-[#15132b] prose-a:text-[#b8862f] prose-li:marker:text-[#b8862f]',
+};
+
+export function Markdown({ children, tone = 'dark' }: { children: string; tone?: keyof typeof MARKDOWN_TONES }) {
   return (
-    <div className="prose prose-invert max-w-none prose-headings:font-display prose-headings:text-gold-soft prose-h2:text-2xl prose-h3:text-xl prose-strong:text-ink prose-a:text-gold prose-li:marker:text-gold/70">
+    <div className={MARKDOWN_TONES[tone]}>
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
     </div>
   );

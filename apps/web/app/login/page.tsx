@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthCard } from '@/components/AuthCard';
 import { ErrorNote, Spinner } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { gql } from '@/lib/gql';
+import { GqlError, gql } from '@/lib/gql';
 
 function LoginForm() {
   const router = useRouter();
@@ -26,6 +26,11 @@ function LoginForm() {
       const user = await signIn(login.token);
       router.replace(next ?? (user?.profiles.length ? '/dashboard' : '/welcome'));
     } catch (err) {
+      // Unconfirmed email: a code has just been sent, so go and enter it.
+      if (err instanceof GqlError && err.code === 'EMAIL_NOT_VERIFIED') {
+        router.replace(`/verify?email=${encodeURIComponent(email.trim().toLowerCase())}${next ? `&next=${encodeURIComponent(next)}` : ''}`);
+        return;
+      }
       setError((err as Error).message);
       setBusy(false);
     }

@@ -1,6 +1,7 @@
 import type { User } from '@prisma/client';
 import { GraphQLError } from 'graphql';
 import { prisma } from '../lib/db';
+import { emailCreditsExhausted } from './notifications';
 
 // Allowances are measured in credits so heavier models and longer readings
 // use more of them. One credit is a tenth of a cent of model cost.
@@ -132,8 +133,8 @@ export async function chargeOverflow(userId: string, costUsd: number) {
   const usedBefore = usedAfter - callCredits;
   const overflow = usedAfter - Math.max(usage.limit, usedBefore);
   if (overflow <= 0) return;
-  await prisma.user.update({
-    where: { id: userId },
-    data: { creditBalance: Math.max(0, user.creditBalance - overflow) },
-  });
+  const balance = Math.max(0, user.creditBalance - overflow);
+  await prisma.user.update({ where: { id: userId }, data: { creditBalance: balance } });
+  // Tell the admins once, at the moment the last credit goes.
+  if (balance < 1 && user.creditBalance >= 1) emailCreditsExhausted(user);
 }

@@ -23,27 +23,33 @@ enum ReadingType {
 }
 
 model User {
-  id               String           @id @default(cuid())
-  email            String           @unique
-  passwordHash     String
-  name             String
-  role             Role             @default(USER)
+  id                  String           @id @default(cuid())
+  email               String           @unique
+  passwordHash        String
+  name                String
+  role                Role             @default(USER)
   // Blocked accounts cannot sign in or use the API.
-  disabled         Boolean          @default(false)
+  disabled            Boolean          @default(false)
   // Per-user override of the default AI credit allowance (1 credit =
   // $0.001 of model cost). Null means the default applies.
-  creditLimit      Int?
-  unlimitedCredits Boolean          @default(false)
+  creditLimit         Int?
+  unlimitedCredits    Boolean          @default(false)
   // Bought or granted credits, used once the free allowance is spent.
-  creditBalance    Float            @default(0)
-  createdAt        DateTime         @default(now())
-  lastSeenAt       DateTime?
-  profiles         BirthProfile[]
-  readings         Reading[]
-  conversations    Conversation[]
-  usage            AiUsage[]
-  paymentRequests  PaymentRequest[]
-  creditGrants     CreditGrant[]
+  creditBalance       Float            @default(0)
+  // Set once the person enters the code emailed to them.
+  emailVerifiedAt     DateTime?
+  verifyCodeHash      String?
+  verifyCodeExpiresAt DateTime?
+  verifyCodeSentAt    DateTime?
+  verifyAttempts      Int              @default(0)
+  createdAt           DateTime         @default(now())
+  lastSeenAt          DateTime?
+  profiles            BirthProfile[]
+  readings            Reading[]
+  conversations       Conversation[]
+  usage               AiUsage[]
+  paymentRequests     PaymentRequest[]
+  creditGrants        CreditGrant[]
 }
 
 // A person whose birth details are known. Every user has one "self" profile
@@ -177,4 +183,19 @@ model CreditGrant {
   createdAt   DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// Every email the app tried to send, for the admin console.
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  // reading, verification, payment, campaign, alert, test
+  kind      String
+  status    String
+  error     String?
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

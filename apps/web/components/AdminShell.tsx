@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BarChart3, IndianRupee, LogOut, Settings, Users } from 'lucide-react';
+import { BarChart3, IndianRupee, LogOut, Mail, Settings, Users } from 'lucide-react';
 import { gql } from '@/lib/gql';
 import { useAuth } from '@/lib/auth';
 import { Logo } from './Logo';
@@ -15,7 +15,8 @@ const TABS = [
   { href: '/admin', label: 'Overview', icon: BarChart3 },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/payments', label: 'Payments', icon: IndianRupee },
-  { href: '/admin/settings', label: 'AI settings', icon: Settings },
+  { href: '/admin/emails', label: 'Emails', icon: Mail },
+  { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
 // The admin console is separate from the customer app: its own sign-in,
@@ -84,7 +85,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       {!aiReady && (
         <div className="border-b border-gold/30 bg-gold/10 px-4 py-2 text-center text-sm text-gold-soft">
           Readings are switched off until an OpenRouter API key is saved.{' '}
-          <Link href="/admin/settings" className="underline">Add it in AI settings</Link>.
+          <Link href="/admin/settings" className="underline">Add it in Settings</Link>.
         </div>
       )}
       <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
