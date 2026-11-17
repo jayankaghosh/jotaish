@@ -1,0 +1,14 @@
+# Build output and local settings
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+*.apk
+*.aab
+*.idsig
+
+# Signing keys must never be committed
+*.keystore
+*.jks
