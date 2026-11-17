@@ -49,6 +49,9 @@ interface CompletionOptions {
   model?: string;
   // When set, the reply is streamed and each text fragment is passed here.
   onToken?: (text: string) => void;
+  // How much hidden thinking a reasoning model may do before it writes.
+  // Ignored by models that don't think.
+  reasoning?: 'low' | 'medium' | 'high';
 }
 
 export interface Completion {
@@ -84,6 +87,7 @@ export async function complete(opts: CompletionOptions): Promise<Completion> {
         max_tokens: opts.maxTokens ?? 4000,
         usage: { include: true },
         stream: Boolean(opts.onToken),
+        reasoning: opts.reasoning ? { effort: opts.reasoning } : undefined,
       }),
     });
     if (opts.onToken && res.ok && res.body) {

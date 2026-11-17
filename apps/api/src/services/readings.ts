@@ -73,8 +73,26 @@ async function save(
 
 // Room for the full report. Some models spend part of this on internal
 // reasoning, so it is set well above the visible length.
-const REPORT_TOKENS: Partial<Record<keyof typeof REPORT_PROMPTS, number>> = { birth_chart: 12000, compatibility: 8000 };
+const REPORT_TOKENS: Partial<Record<keyof typeof REPORT_PROMPTS, number>> = { birth_chart: 6000, compatibility: 8000 };
 const MAX_CONTINUATIONS = 2;
+
+// A Kundli is long, so its sections are written by three calls at once and
+// joined in order: the wait is the longest part rather than the whole.
+// Each part gets only the data it needs; the lifetime dasha table is most
+// of a chart and only the dasha section reads it.
+interface ReportPart {
+  brief: string;
+  data?: (payload: any) => unknown;
+}
+const withoutDashaTable = (p: any) => ({ ...p, chart: { ...p.chart, dashas: undefined } });
+
+const REPORT_PARTS: Partial<Record<keyof typeof REPORT_PROMPTS, ReportPart[]>> = {
+  birth_chart: [
+    { brief: 'Write only sections 1 and 2 (Overview and Planets). Mention an unknown birth time here if it applies.', data: withoutDashaTable },
+    { brief: 'Write only sections 3 and 4 (Houses that stand out, and Yogas and doshas). Do not mention the birth time.', data: withoutDashaTable },
+    { brief: 'Write only sections 5, 6 and 7 (Vimshottari dasha, Sade Sati if active, and Guidance). Do not mention the birth time.' },
+  ],
+};
 
 interface Report {
   model: string;
@@ -84,16 +102,32 @@ interface Report {
 
 async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image?: string, region?: Region): Promise<Report> {
   const started = Date.now();
-  const text = `Here is the data for this reading as JSON:\n\n${JSON.stringify(payload, null, 1)}`;
+  const system = REPORT_PROMPTS[task] + (region ? regionInstruction(region) : '') + languageInstruction(currentLang());
+  const parts = REPORT_PARTS[task];
+  const written = parts
+    ? await Promise.all(
+        parts.map((part) =>
+          writePart(task, userId, part.data ? part.data(payload) : payload, image, `${system}\n\nThis report is written in parts at the same time. ${part.brief} Use each section name as a ## heading without its number. Start directly with your first heading, with no title, greeting or closing summary.`),
+        ),
+      )
+    : [await writePart(task, userId, payload, image, system)];
+  return { model: written[0].model, content: written.map((w) => w.content.trim()).join('\n\n'), ms: Date.now() - started };
+}
+
+async function writePart(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image: string | undefined, system: string) {
+  // Compact JSON: the model reads it just as well, and it is shorter.
+  const text = `Here is the data for this reading as JSON:\n\n${JSON.stringify(payload)}`;
   const content: string | ContentPart[] = image
     ? [{ type: 'text', text }, { type: 'image_url', image_url: { url: image } }]
     : text;
   const messages: ChatMessage[] = [
-    { role: 'system', content: REPORT_PROMPTS[task] + (region ? regionInstruction(region) : '') + languageInstruction(currentLang()) },
+    { role: 'system', content: system },
     { role: 'user', content },
   ];
   const maxTokens = REPORT_TOKENS[task] ?? 6000;
-  let reply = await complete({ task, userId, messages, maxTokens });
+  // The data is already calculated, so light thinking is enough and the
+  // report starts much sooner.
+  let reply = await complete({ task, userId, messages, maxTokens, reasoning: 'low' });
   let report = reply.content;
 
   // If the model ran out of room, ask it to carry on so a report never ends
@@ -106,6 +140,7 @@ async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, pa
       task,
       userId,
       maxTokens,
+      reasoning: 'low',
       messages: [
         ...messages,
         { role: 'assistant', content: report },
@@ -114,7 +149,7 @@ async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, pa
     });
     report += reply.content;
   }
-  return { model: reply.model, content: report, ms: Date.now() - started };
+  return { model: reply.model, content: report };
 }
 
 export async function createBirthChart(owner: Owner, profileId?: string | null, regionInput?: string | null) {
