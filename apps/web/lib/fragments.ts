@@ -6,9 +6,11 @@ export const USER_FIELDS = `id email name role disabled createdAt lastSeenAt rea
 
 export const READING_SUMMARY = `id type title input createdAt profile { id name }`;
 
+export const ADMIN_READING_SUMMARY = `${READING_SUMMARY} generationMs`;
+
 export const READING_FIELDS = `id type title input data interpretation createdAt conversationId profile { ${PROFILE_FIELDS} }`;
 
-export const ADMIN_READING_FIELDS = `${READING_FIELDS} model`;
+export const ADMIN_READING_FIELDS = `${READING_FIELDS} model generationMs`;
 
 export const MESSAGE_FIELDS = `id role content imageDataUrl toolName createdAt`;
 

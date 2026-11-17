@@ -52,6 +52,7 @@ export interface Reading {
   data: any;
   interpretation: string;
   model?: string | null;
+  generationMs?: number | null;
   createdAt: string;
   conversationId?: string | null;
   profile?: BirthProfile | null;

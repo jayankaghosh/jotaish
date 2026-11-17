@@ -89,6 +89,8 @@ model Reading {
   data           Json
   interpretation String
   model          String?
+  // How long the report took to write, in milliseconds. Shown to admins only.
+  generationMs   Int?
   createdAt      DateTime      @default(now())
 
   @@index([userId, createdAt])

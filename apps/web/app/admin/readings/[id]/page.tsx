@@ -8,6 +8,7 @@ import { ErrorNote, Spinner } from '@/components/ui';
 import { gql } from '@/lib/gql';
 import { ADMIN_READING_FIELDS } from '@/lib/fragments';
 import type { Reading } from '@/lib/types';
+import { formatDuration } from '@/lib/dates';
 
 export default function AdminReading({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -28,7 +29,10 @@ export default function AdminReading({ params }: { params: Promise<{ id: string 
       {!reading ? (!error && <Spinner />) : (
         <div className="mx-auto max-w-4xl">
           <h1 className="mb-2 font-display text-4xl text-ink">{reading.title}</h1>
-          <p className="mb-8 text-sm text-muted">Written by {reading.model ?? 'unknown model'}</p>
+          <p className="mb-8 text-sm text-muted">
+            Written by {reading.model ?? 'unknown model'}
+            {reading.generationMs != null && ` in ${formatDuration(reading.generationMs)}`}
+          </p>
           <ReadingView reading={reading} />
           <details className="card mt-6 p-4 text-xs">
             <summary className="cursor-pointer text-muted">Raw input and computed data</summary>

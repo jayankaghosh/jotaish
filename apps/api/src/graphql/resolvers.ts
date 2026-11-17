@@ -153,6 +153,7 @@ export const resolvers = {
   Reading: {
     createdAt: iso('createdAt'),
     model: adminOnly('model'),
+    generationMs: adminOnly('generationMs'),
     profile: (r: { profileId: string | null }) => (r.profileId ? prisma.birthProfile.findUnique({ where: { id: r.profileId } }) : null),
   },
   Conversation: {
@@ -205,7 +206,7 @@ export const resolvers = {
         prisma.conversation.count(),
         prisma.message.count({ where: { role: 'user' } }),
         prisma.reading.count(),
-        prisma.reading.groupBy({ by: ['type'], _count: true }),
+        prisma.reading.groupBy({ by: ['type'], _count: true, _avg: { generationMs: true } }),
         prisma.aiUsage.count(),
         prisma.aiUsage.count({ where: { error: { not: null } } }),
         prisma.aiUsage.aggregate({ _sum: { cost: true } }),
@@ -218,7 +219,11 @@ export const resolvers = {
         conversations,
         messages,
         readings: readingCount,
-        readingsByType: byType.map((r) => ({ key: r.type, count: r._count })),
+        readingsByType: byType.map((r) => ({
+          key: r.type,
+          count: r._count,
+          avgGenerationMs: r._avg.generationMs == null ? null : Math.round(r._avg.generationMs),
+        })),
         aiCalls,
         aiErrors,
         aiCost: cost._sum.cost ?? 0,

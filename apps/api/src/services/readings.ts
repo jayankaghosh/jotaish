@@ -50,8 +50,7 @@ async function save(
   title: string,
   input: Prisma.InputJsonValue,
   data: Prisma.InputJsonValue,
-  interpretation: string,
-  model: string,
+  report: Report,
   profileId?: string,
 ) {
   const reading = await prisma.reading.create({
@@ -63,8 +62,9 @@ async function save(
       title,
       input,
       data,
-      interpretation,
-      model,
+      interpretation: report.content,
+      model: report.model,
+      generationMs: report.ms,
     },
   });
   emailReading(reading.id);
@@ -76,7 +76,14 @@ async function save(
 const REPORT_TOKENS: Partial<Record<keyof typeof REPORT_PROMPTS, number>> = { birth_chart: 12000, compatibility: 8000 };
 const MAX_CONTINUATIONS = 2;
 
-async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image?: string, region?: Region) {
+interface Report {
+  model: string;
+  content: string;
+  ms: number;
+}
+
+async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image?: string, region?: Region): Promise<Report> {
+  const started = Date.now();
   const text = `Here is the data for this reading as JSON:\n\n${JSON.stringify(payload, null, 1)}`;
   const content: string | ContentPart[] = image
     ? [{ type: 'text', text }, { type: 'image_url', image_url: { url: image } }]
@@ -107,7 +114,7 @@ async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, pa
     });
     report += reply.content;
   }
-  return { model: reply.model, content: report };
+  return { model: reply.model, content: report, ms: Date.now() - started };
 }
 
 export async function createBirthChart(owner: Owner, profileId?: string | null, regionInput?: string | null) {
@@ -115,7 +122,7 @@ export async function createBirthChart(owner: Owner, profileId?: string | null, 
   const region = toRegion(regionInput ?? defaultRegion());
   const chart = chartFor(profile);
   const report = await writeReport('birth_chart', owner.userId, { person: birthSummary(profile), chart }, undefined, region);
-  return save(owner, 'BIRTH_CHART', tr('Kundli for {name}', { name: profile.name }), { ...birthSummary(profile), region }, chart as any, report.content, report.model, profile.id);
+  return save(owner, 'BIRTH_CHART', tr('Kundli for {name}', { name: profile.name }), { ...birthSummary(profile), region }, chart as any, report, profile.id);
 }
 
 export async function createHoroscope(
@@ -150,8 +157,7 @@ export async function createHoroscope(
     person ? tr('{period}: {sign} for {name}', { period: label, sign: signLabel, name: person }) : `${label}: ${signLabel}`,
     { sign, system, period, date: today, region: region ?? null },
     payload as any,
-    report.content,
-    report.model,
+    report,
     profileId,
   );
 }
@@ -170,7 +176,7 @@ export async function createCompatibility(owner: Owner, profileA: string, profil
   });
   const data = { personA: { ...birthSummary(a), chart: pick(chartFor(a)) }, personB: { ...birthSummary(b), chart: pick(chartFor(b)) } };
   const report = await writeReport('compatibility', owner.userId, data);
-  return save(owner, 'COMPATIBILITY', tr('{a} & {b}: compatibility', { a: a.name, b: b.name }), { profileA: a.id, profileB: b.id }, data as any, report.content, report.model, a.id);
+  return save(owner, 'COMPATIBILITY', tr('{a} & {b}: compatibility', { a: a.name, b: b.name }), { profileA: a.id, profileB: b.id }, data as any, report, a.id);
 }
 
 export async function createTarot(owner: Owner, args: { question?: string | null; spread?: string | null }) {
@@ -178,7 +184,7 @@ export async function createTarot(owner: Owner, args: { question?: string | null
   const question = args.question?.trim() || tr('General guidance for the path ahead');
   const cards = drawSpread(spread);
   const report = await writeReport('tarot', owner.userId, { question, spread: SPREADS[spread].label, cards });
-  return save(owner, 'TAROT', tr('Tarot: {question}', { question: question.slice(0, 60) }), { question, spread }, { spread: SPREADS[spread].label, cards }, report.content, report.model);
+  return save(owner, 'TAROT', tr('Tarot: {question}', { question: question.slice(0, 60) }), { question, spread }, { spread: SPREADS[spread].label, cards }, report);
 }
 
 export async function createNumerology(owner: Owner, args: { fullName: string; birthDate: string }) {
@@ -188,7 +194,7 @@ export async function createNumerology(owner: Owner, args: { fullName: string; b
   if (!isValidDate(args.birthDate)) throw userError('Please enter the date of birth as YYYY-MM-DD.');
   const numbers = computeNumerology(args.fullName.trim(), args.birthDate);
   const report = await writeReport('numerology', owner.userId, numbers);
-  return save(owner, 'NUMEROLOGY', tr('Numerology for {name}', { name: args.fullName.trim() }), args, numbers, report.content, report.model);
+  return save(owner, 'NUMEROLOGY', tr('Numerology for {name}', { name: args.fullName.trim() }), args, numbers, report);
 }
 
 export async function createPalm(owner: Owner, args: { imageDataUrl: string; hand?: string | null; question?: string | null }) {
@@ -197,12 +203,12 @@ export async function createPalm(owner: Owner, args: { imageDataUrl: string; han
   const hand = args.hand === 'left' ? 'left' : 'right';
   const payload = { hand, question: args.question ?? null };
   const report = await writeReport('palm', owner.userId, payload, args.imageDataUrl);
-  return save(owner, 'PALM', tr(hand === 'left' ? 'Palm reading (left hand)' : 'Palm reading (right hand)'), { ...payload, imageDataUrl: args.imageDataUrl }, payload, report.content, report.model);
+  return save(owner, 'PALM', tr(hand === 'left' ? 'Palm reading (left hand)' : 'Palm reading (right hand)'), { ...payload, imageDataUrl: args.imageDataUrl }, payload, report);
 }
 
 export async function createDream(owner: Owner, args: { dream: string; feeling?: string | null }) {
   if (!args.dream || args.dream.trim().length < 10) throw userError('Please describe the dream in a sentence or two.');
   const payload = { dream: args.dream.trim(), feeling: args.feeling ?? null };
   const report = await writeReport('dream', owner.userId, payload);
-  return save(owner, 'DREAM', tr('Dream: {dream}', { dream: payload.dream.slice(0, 60) }), payload, payload, report.content, report.model);
+  return save(owner, 'DREAM', tr('Dream: {dream}', { dream: payload.dream.slice(0, 60) }), payload, payload, report);
 }

@@ -93,6 +93,7 @@ export const typeDefs = /* GraphQL */ `
     data: JSON!
     interpretation: String!
     model: String
+    generationMs: Int
     profile: BirthProfile
     conversationId: ID
     createdAt: String!
@@ -253,9 +254,10 @@ export const typeDefs = /* GraphQL */ `
     tools: Boolean!
   }
 
-  type CountByKey {
+  type ReadingTypeStat {
     key: String!
     count: Int!
+    avgGenerationMs: Int
   }
 
   type ModelUsage {
@@ -285,7 +287,7 @@ export const typeDefs = /* GraphQL */ `
     conversations: Int!
     messages: Int!
     readings: Int!
-    readingsByType: [CountByKey!]!
+    readingsByType: [ReadingTypeStat!]!
     aiCalls: Int!
     aiErrors: Int!
     aiCost: Float!

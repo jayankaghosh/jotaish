@@ -7,6 +7,7 @@ import { gql } from '@/lib/gql';
 import en from '@/lib/locales/en';
 import { serviceByType, serviceKey } from '@/lib/services';
 import type { ReadingType } from '@/lib/types';
+import { formatDuration } from '@/lib/dates';
 
 interface Stats {
   users: number;
@@ -14,7 +15,7 @@ interface Stats {
   conversations: number;
   messages: number;
   readings: number;
-  readingsByType: { key: string; count: number }[];
+  readingsByType: { key: string; count: number; avgGenerationMs: number | null }[];
   aiCalls: number;
   aiErrors: number;
   aiCost: number;
@@ -29,7 +30,7 @@ export default function AdminOverview() {
   useEffect(() => {
     gql<{ adminStats: Stats }>(`{ adminStats {
       users newUsersThisWeek conversations messages readings aiCalls aiErrors aiCost
-      readingsByType { key count }
+      readingsByType { key count avgGenerationMs }
       usageByModel { model calls promptTokens completionTokens cost }
       recentUsage { id task model promptTokens completionTokens cost latencyMs error userName createdAt }
     } }`)
@@ -58,7 +59,10 @@ export default function AdminOverview() {
               <ul className="space-y-3">
                 {stats.readingsByType.sort((a, b) => b.count - a.count).map((r) => (
                   <li key={r.key}>
-                    <div className="mb-1 flex justify-between text-sm"><span className="text-ink">{en[serviceKey(serviceByType(r.key as ReadingType), 'title')]}</span><span className="text-muted">{r.count}</span></div>
+                    <div className="mb-1 flex justify-between text-sm"><span className="text-ink">{en[serviceKey(serviceByType(r.key as ReadingType), 'title')]}</span><span className="text-muted">
+                      {r.count}
+                      {r.avgGenerationMs != null && <span className="ml-2 text-xs text-faint">avg {formatDuration(r.avgGenerationMs)}</span>}
+                    </span></div>
                     <div className="h-2 rounded-full bg-line"><div className="h-2 rounded-full bg-gold" style={{ width: `${(r.count / Math.max(1, stats.readings)) * 100}%` }} /></div>
                   </li>
                 ))}

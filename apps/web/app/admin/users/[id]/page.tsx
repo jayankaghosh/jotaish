@@ -8,7 +8,8 @@ import { BackLink, ErrorNote, Spinner, formatDate } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { creditsLeft } from '@/lib/credits';
 import { gql } from '@/lib/gql';
-import { READING_SUMMARY, USAGE_FIELDS, USER_FIELDS } from '@/lib/fragments';
+import { ADMIN_READING_SUMMARY, USAGE_FIELDS, USER_FIELDS } from '@/lib/fragments';
+import { formatDuration } from '@/lib/dates';
 import { serviceByType } from '@/lib/services';
 import type { Conversation, PaymentRequest, Reading, Usage, User } from '@/lib/types';
 
@@ -25,7 +26,7 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     gql<{ adminUser: User; adminUserReadings: Reading[]; adminUserConversations: Conversation[] }>(
-      `query($id: ID!) { adminUser(id: $id) { ${USER_FIELDS} } adminUserReadings(userId: $id) { ${READING_SUMMARY} } adminUserConversations(userId: $id) { id title updatedAt lastMessage } }`,
+      `query($id: ID!) { adminUser(id: $id) { ${USER_FIELDS} } adminUserReadings(userId: $id) { ${ADMIN_READING_SUMMARY} } adminUserConversations(userId: $id) { id title updatedAt lastMessage } }`,
       { id },
     )
       .then((d) => {
@@ -109,6 +110,7 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
                     <Link href={`/admin/readings/${r.id}`} className="card flex items-center gap-3 p-4 hover:border-gold/50">
                       <s.icon size={18} className="text-gold" />
                       <span className="flex-1 text-ink">{r.title}</span>
+                      {r.generationMs != null && <span className="text-xs text-faint" title="Time taken to write">{formatDuration(r.generationMs)}</span>}
                       <span className="text-xs text-faint">{formatDate(r.createdAt, true)}</span>
                     </Link>
                   </li>
