@@ -24,6 +24,20 @@ export interface User {
   profiles: BirthProfile[];
   readingCount: number;
   conversationCount: number;
+  creditLimit?: number | null;
+  unlimitedCredits?: boolean;
+  usage?: Usage | null;
+}
+
+export interface Usage {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  percentLeft: number | null;
+  spentUsd: number;
+  period: 'day' | 'month' | 'total';
+  resetsAt: string | null;
+  source: 'default' | 'custom' | 'unlimited' | 'admin';
 }
 
 export interface Reading {

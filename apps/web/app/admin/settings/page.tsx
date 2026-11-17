@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Eye, KeyRound, XCircle } from 'lucide-react';
+import { CheckCircle2, Eye, Gauge, KeyRound, XCircle } from 'lucide-react';
 import { AdminShell } from '@/components/AdminShell';
 import { ErrorNote, PageTitle, Spinner, Tip } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -14,12 +14,15 @@ interface Settings {
   apiKeyPreview: string | null;
   apiKeySource: string;
   temperature: number;
+  creditLimit: number | null;
+  creditPeriod: 'day' | 'month' | 'total';
+  creditUsd: number;
   tasks: TaskSetting[];
   recommendedModels: Recommended[];
 }
 interface CatalogModel { id: string; name: string; promptPrice: number; completionPrice: number; vision: boolean; tools: boolean }
 
-const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
+const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
 
 export default function AdminSettings() {
   const { refresh } = useAuth();
@@ -118,6 +121,8 @@ export default function AdminSettings() {
           </div>
         </section>
 
+        <LimitSettings settings={settings} onSaved={apply} />
+
         <section className="card p-6">
           <h2 className="font-display text-2xl text-ink">Model for each task</h2>
           <p className="mb-6 mt-1 text-sm text-muted">
@@ -191,5 +196,76 @@ export default function AdminSettings() {
         </section>
       </div>
     </AdminShell>
+  );
+}
+
+function LimitSettings({ settings, onSaved }: { settings: Settings; onSaved: (s: Settings) => void }) {
+  const [unlimited, setUnlimited] = useState(settings.creditLimit === null);
+  const [limit, setLimit] = useState(String(settings.creditLimit ?? 200));
+  const [period, setPeriod] = useState(settings.creditPeriod);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const { updateSettings } = await gql<{ updateSettings: Settings }>(`mutation($input: SettingsInput!) { updateSettings(input: $input) { ${SETTINGS_FIELDS} } }`, {
+        input: { limits: { limit: unlimited ? null : Number(limit), period } },
+      });
+      onSaved(updateSettings);
+      setSaved(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const valid = unlimited || /^\d+$/.test(limit.trim());
+  const dollars = valid && !unlimited ? Number(limit) * settings.creditUsd : null;
+
+  return (
+    <section className="card p-6">
+      <div className="mb-1 flex items-center gap-3">
+        <Gauge className="text-gold" />
+        <h2 className="font-display text-2xl text-ink">Default AI allowance per user</h2>
+      </div>
+      <p className="mb-5 text-sm text-muted">
+        Each user can spend this many credits on AI per period. Credits follow the real OpenRouter cost of every call made for
+        them (1 credit = ${settings.creditUsd}), so heavier models and long reports use more. Customers only see a percentage of
+        their allowance left. You can give individual users a different allowance from their user page; admins are never limited.
+      </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <div>
+          <label className="label" htmlFor="limit">Credits</label>
+          <input id="limit" className="input sm:w-32" inputMode="numeric" value={unlimited ? '' : limit} disabled={unlimited} onChange={(e) => { setLimit(e.target.value); setSaved(false); }} placeholder={unlimited ? 'No limit' : ''} />
+        </div>
+        <div>
+          <label className="label" htmlFor="period">Per</label>
+          <select id="period" className="input sm:w-44" value={period} disabled={unlimited} onChange={(e) => { setPeriod(e.target.value as Settings['creditPeriod']); setSaved(false); }}>
+            <option value="day">Day</option>
+            <option value="month">Month</option>
+            <option value="total">In total (never resets)</option>
+          </select>
+        </div>
+        <label className="flex items-center gap-2 pb-3 text-sm text-ink">
+          <input type="checkbox" checked={unlimited} onChange={(e) => { setUnlimited(e.target.checked); setSaved(false); }} className="accent-[var(--color-gold)]" />
+          No limit
+        </label>
+      </div>
+      <p className="hint">
+        {dollars !== null ? `That is up to $${dollars.toFixed(2)} of AI cost per user ${period === 'total' ? 'in total' : `per ${period}`}. ` : ''}
+        For a sense of scale, a short chat reply is about 5 to 10 credits and a full Kundli report about 60 to 80, depending on the models chosen below.
+        Days and months reset at midnight UTC.
+      </p>
+      <div className="mt-4 flex items-center gap-3">
+        <button className="btn-primary" onClick={save} disabled={busy || !valid}>{busy ? <Spinner /> : 'Save allowance'}</button>
+        {saved && <span className="text-sm text-ok">Saved.</span>}
+      </div>
+      <div className="mt-3"><ErrorNote message={error} /></div>
+    </section>
   );
 }

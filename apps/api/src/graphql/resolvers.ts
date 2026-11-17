@@ -1,12 +1,13 @@
 import bcrypt from 'bcryptjs';
 import { GraphQLScalarType, Kind, type ValueNode } from 'graphql';
-import type { Prisma, ReadingType, Role } from '@prisma/client';
+import type { Prisma, ReadingType, Role, User } from '@prisma/client';
 import { prisma } from '../lib/db';
 import { requireAdmin, requireUser, signToken, userError, type Context } from '../lib/auth';
 import { maskSecret } from '../lib/crypto';
 import { searchPlaces } from '../astro/geo';
 import { saveProfile, type ProfileInput } from '../services/profiles';
 import * as readings from '../services/readings';
+import { CREDIT_USD, assertCanInteract, getLimitSettings, setLimitSettings, usageFor } from '../services/limits';
 import { greeting, sendMessage, streamMessage, type ChatEvent } from '../ai/agent';
 import { AiError, complete, listOpenRouterModels } from '../ai/openrouter';
 import {
@@ -44,13 +45,21 @@ const JSONScalar = new GraphQLScalarType({
 });
 
 async function adminSettings() {
-  const [models, stored, temperature] = await Promise.all([getModels(), prisma.setting.findUnique({ where: { key: 'openrouter_api_key' } }), getTemperature()]);
+  const [models, stored, temperature, limits] = await Promise.all([
+    getModels(),
+    prisma.setting.findUnique({ where: { key: 'openrouter_api_key' } }),
+    getTemperature(),
+    getLimitSettings(),
+  ]);
   const key = await getApiKey();
   return {
     apiKeySet: Boolean(key),
     apiKeyPreview: key ? maskSecret(key) : null,
     apiKeySource: stored ? 'settings' : env.openRouterKey ? 'environment' : 'none',
     temperature,
+    creditLimit: limits.limit,
+    creditPeriod: limits.period,
+    creditUsd: CREDIT_USD,
     tasks: (Object.keys(AI_TASKS) as AiTask[]).map((task) => ({ task, ...AI_TASKS[task], needs: [...AI_TASKS[task].needs], model: models[task] })),
     recommendedModels: RECOMMENDED_MODELS,
   };
@@ -70,6 +79,29 @@ function withoutPhoto<T extends { type: ReadingType; input: Prisma.JsonValue }>(
   return { ...r, input: { ...rest, hasPhoto: Boolean(imageDataUrl) } };
 }
 
+
+function createReadingFor(owner: { userId: string }, input: any) {
+  switch (input.type as ReadingType) {
+    case 'BIRTH_CHART':
+      return readings.createBirthChart(owner, input.profileId);
+    case 'HOROSCOPE':
+      return readings.createHoroscope(owner, input);
+    case 'COMPATIBILITY':
+      if (!input.profileId || !input.profileB) throw userError('Please choose both people.');
+      return readings.createCompatibility(owner, input.profileId, input.profileB);
+    case 'TAROT':
+      return readings.createTarot(owner, input);
+    case 'NUMEROLOGY':
+      return readings.createNumerology(owner, input);
+    case 'PALM':
+      return readings.createPalm(owner, input);
+    case 'DREAM':
+      return readings.createDream(owner, input);
+    default:
+      throw userError('Unknown reading type.');
+  }
+}
+
 export const resolvers = {
   JSON: JSONScalar,
 
@@ -79,7 +111,9 @@ export const resolvers = {
     profiles: (u: { id: string }) => prisma.birthProfile.findMany({ where: { userId: u.id }, orderBy: { createdAt: 'asc' } }),
     readingCount: (u: { id: string }) => prisma.reading.count({ where: { userId: u.id } }),
     conversationCount: (u: { id: string }) => prisma.conversation.count({ where: { userId: u.id } }),
+    usage: (u: User, _: unknown, ctx: Context) => (ctx.user && (ctx.user.id === u.id || ctx.user.role === 'ADMIN') ? usageFor(u) : null),
   },
+  Usage: { resetsAt: iso('resetsAt') },
   BirthProfile: { createdAt: iso('createdAt') },
   Reading: {
     createdAt: iso('createdAt'),
@@ -212,7 +246,7 @@ export const resolvers = {
     login: async (_: unknown, { email, password }: { email: string; password: string }) => {
       const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
       if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw userError('That email and password do not match. Please try again.');
-      if (user.disabled) throw userError('This account has been disabled. Please contact support.');
+      if (user.disabled) throw userError('This account has been blocked. If you think this is a mistake, please contact us.');
       await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
       return { token: signToken(user.id), user };
     },
@@ -233,24 +267,9 @@ export const resolvers = {
       return count > 0;
     },
     createReading: async (_: unknown, { input }: { input: any }, ctx: Context) => {
-      const owner = { userId: requireUser(ctx).id };
-      switch (input.type as ReadingType) {
-        case 'BIRTH_CHART':
-          return readings.createBirthChart(owner, input.profileId);
-        case 'HOROSCOPE':
-          return readings.createHoroscope(owner, input);
-        case 'COMPATIBILITY':
-          if (!input.profileId || !input.profileB) throw userError('Please choose both people.');
-          return readings.createCompatibility(owner, input.profileId, input.profileB);
-        case 'TAROT':
-          return readings.createTarot(owner, input);
-        case 'NUMEROLOGY':
-          return readings.createNumerology(owner, input);
-        case 'PALM':
-          return readings.createPalm(owner, input);
-        case 'DREAM':
-          return readings.createDream(owner, input);
-      }
+      const user = requireUser(ctx);
+      await assertCanInteract(user);
+      return createReadingFor({ userId: user.id }, input);
     },
     deleteReading: async (_: unknown, { id }: { id: string }, ctx: Context) => {
       const { count } = await prisma.reading.deleteMany({ where: { id, userId: requireUser(ctx).id } });
@@ -288,6 +307,7 @@ export const resolvers = {
       if (input.clearApiKey) await setApiKey(null);
       else if (input.apiKey?.trim()) await setApiKey(input.apiKey.trim());
       if (typeof input.temperature === 'number') await setTemperature(input.temperature);
+      if (input.limits) await setLimitSettings(input.limits);
       if (input.models?.length) {
         const valid = input.models.filter((m: { task: string; model: string }) => m.task in AI_TASKS && m.model.trim());
         await setModels(Object.fromEntries(valid.map((m: { task: string; model: string }) => [m.task, m.model.trim()])));
@@ -316,8 +336,17 @@ export const resolvers = {
     },
     setUserDisabled: async (_: unknown, { userId, disabled }: { userId: string; disabled: boolean }, ctx: Context) => {
       const admin = requireAdmin(ctx);
-      if (admin.id === userId) throw userError('You cannot disable your own account.');
+      if (admin.id === userId) throw userError('You cannot block your own account.');
       return prisma.user.update({ where: { id: userId }, data: { disabled } });
+    },
+    setUserLimit: async (_: unknown, { userId, mode, limit }: { userId: string; mode: string; limit?: number | null }, ctx: Context) => {
+      requireAdmin(ctx);
+      if (mode === 'unlimited') return prisma.user.update({ where: { id: userId }, data: { unlimitedCredits: true, creditLimit: null } });
+      if (mode === 'custom') {
+        if (limit == null || limit < 0) throw userError('Please enter a limit of 0 or more.');
+        return prisma.user.update({ where: { id: userId }, data: { unlimitedCredits: false, creditLimit: Math.floor(limit) } });
+      }
+      return prisma.user.update({ where: { id: userId }, data: { unlimitedCredits: false, creditLimit: null } });
     },
   },
 };

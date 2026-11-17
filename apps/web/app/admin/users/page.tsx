@@ -18,7 +18,7 @@ export default function AdminUsers() {
   useEffect(() => {
     const t = setTimeout(() => {
       gql<{ adminUsers: { total: number; items: User[] } }>(
-        `query($search: String, $skip: Int, $take: Int) { adminUsers(search: $search, skip: $skip, take: $take) { total items { id name email role disabled createdAt lastSeenAt readingCount conversationCount } } }`,
+        `query($search: String, $skip: Int, $take: Int) { adminUsers(search: $search, skip: $skip, take: $take) { total items { id name email role disabled createdAt lastSeenAt readingCount conversationCount usage { used limit spentUsd period } } } }`,
         { search: search || null, skip, take: PAGE },
       ).then((d) => setData(d.adminUsers));
     }, 250);
@@ -34,9 +34,9 @@ export default function AdminUsers() {
       </div>
       {!data ? <Spinner /> : (
         <div className="card overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[840px] text-sm">
             <thead className="border-b border-line text-left text-xs uppercase text-faint">
-              <tr><th className="p-4">Name</th><th className="p-4">Email</th><th className="p-4">Joined</th><th className="p-4">Last seen</th><th className="p-4 text-right">Readings</th><th className="p-4 text-right">Chats</th><th className="p-4">Status</th></tr>
+              <tr><th className="p-4">Name</th><th className="p-4">Email</th><th className="p-4">Joined</th><th className="p-4">Last seen</th><th className="p-4 text-right">Readings</th><th className="p-4 text-right">Chats</th><th className="p-4 text-right">Credits used</th><th className="p-4">Status</th></tr>
             </thead>
             <tbody className="divide-y divide-line">
               {data.items.map((u) => (
@@ -47,13 +47,14 @@ export default function AdminUsers() {
                   <td className="p-4 text-muted">{u.lastSeenAt ? formatDate(u.lastSeenAt) : '-'}</td>
                   <td className="p-4 text-right text-muted">{u.readingCount}</td>
                   <td className="p-4 text-right text-muted">{u.conversationCount}</td>
+                  <td className="p-4 text-right text-muted">{u.usage ? `${u.usage.used}${u.usage.limit !== null ? ` / ${u.usage.limit}` : ''}` : '-'}{u.usage && <span className="block text-xs text-faint">${u.usage.spentUsd.toFixed(3)}</span>}</td>
                   <td className="p-4">
                     {u.role === 'ADMIN' && <span className="chip mr-1 border-gold/50 text-gold-soft">Admin</span>}
-                    {u.disabled && <span className="chip border-danger/50 text-danger">Disabled</span>}
+                    {u.disabled && <span className="chip border-danger/50 text-danger">Blocked</span>}
                   </td>
                 </tr>
               ))}
-              {data.items.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted">No users match.</td></tr>}
+              {data.items.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-muted">No users match.</td></tr>}
             </tbody>
           </table>
           <div className="flex items-center justify-between border-t border-line p-4 text-sm text-muted">

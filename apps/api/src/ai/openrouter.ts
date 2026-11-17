@@ -98,15 +98,19 @@ export async function complete(opts: CompletionOptions): Promise<Completion> {
     error = (e as Error).message;
     throw new AiError('Jotaish could not answer just now. Please try again in a moment.', error);
   } finally {
+    const promptTokens = usage.prompt_tokens ?? 0;
+    const completionTokens = usage.completion_tokens ?? 0;
+    // Allowances depend on cost, so estimate it when OpenRouter doesn't say.
+    const cost = usage.cost ?? (promptTokens || completionTokens ? await estimateCost(model, promptTokens, completionTokens) : null);
     await prisma.aiUsage
       .create({
         data: {
           userId: opts.userId ?? null,
           task: opts.task,
           model,
-          promptTokens: usage.prompt_tokens ?? 0,
-          completionTokens: usage.completion_tokens ?? 0,
-          cost: usage.cost ?? null,
+          promptTokens,
+          completionTokens,
+          cost,
           latencyMs: Date.now() - started,
           error,
         },
@@ -160,6 +164,22 @@ export async function readStream(body: ReadableStream<Uint8Array>, onToken: (tex
     }
   }
   return { content, model, usage, toolCalls: toolCalls.filter(Boolean) };
+}
+
+let priceCache: { at: number; prices: Map<string, { prompt: number; completion: number }> } | null = null;
+
+async function estimateCost(model: string, promptTokens: number, completionTokens: number): Promise<number | null> {
+  try {
+    if (!priceCache || Date.now() - priceCache.at > 3600_000) {
+      const models = await listOpenRouterModels();
+      // Prices from the catalogue are per million tokens.
+      priceCache = { at: Date.now(), prices: new Map(models.map((m) => [m.id, { prompt: m.promptPrice / 1e6, completion: m.completionPrice / 1e6 }])) };
+    }
+    const price = priceCache.prices.get(model);
+    return price ? promptTokens * price.prompt + completionTokens * price.completion : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function listOpenRouterModels() {

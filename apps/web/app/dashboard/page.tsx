@@ -6,6 +6,7 @@ import { ArrowRight, BookOpen, MessageCircle, UserPlus } from 'lucide-react';
 import { Shell } from '@/components/Shell';
 import { formatDate } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { usageLine } from '@/components/UsageNote';
 import { gql } from '@/lib/gql';
 import { READING_SUMMARY } from '@/lib/fragments';
 import { SERVICES, serviceByType } from '@/lib/services';
@@ -50,7 +51,10 @@ export default function Dashboard() {
   return (
     <Shell>
       <h1 className="font-display text-4xl text-ink">{greeting}, {user?.name.split(' ')[0]}</h1>
-      <p className="mt-1 text-muted">What would you like guidance on today?</p>
+      <p className="mt-1 text-muted">
+        What would you like guidance on today?
+        {usageLine(user?.usage) && <span className="ml-2 chip align-middle">{usageLine(user?.usage)}</span>}
+      </p>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-3">
         <div className="card p-6 lg:col-span-2">

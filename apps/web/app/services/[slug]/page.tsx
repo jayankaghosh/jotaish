@@ -8,6 +8,7 @@ import { Shell } from '@/components/Shell';
 import { PersonPicker } from '@/components/PersonPicker';
 import { BackLink, Consulting, ErrorNote, Tip } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { OutOfAllowance, isOutOfAllowance, usageLine } from '@/components/UsageNote';
 import { gql } from '@/lib/gql';
 import { photoToDataUrl } from '@/lib/image';
 import { ZODIAC, serviceBySlug, type Service } from '@/lib/services';
@@ -39,6 +40,7 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
     setError(null);
     try {
       const { createReading } = await gql(`mutation($input: ReadingInput!) { createReading(input: $input) { id } }`, { input: { type: service!.type, ...input } });
+      void refresh();
       router.push(`/readings/${createReading.id}?fresh=1`);
     } catch (e) {
       setError((e as Error).message);
@@ -62,11 +64,14 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
             <h1 className="font-display text-4xl text-ink">{service.title}</h1>
             <p className="mt-2 text-muted">{service.description}</p>
             <p className="mt-3 flex items-center gap-1.5 text-xs text-faint"><Clock size={14} /> {service.time}. Your reading is saved to your profile automatically.</p>
+            {usageLine(user?.usage) && <p className="mt-1 text-xs text-muted">{usageLine(user?.usage)}</p>}
           </div>
         </div>
 
         {busy ? (
           <Consulting />
+        ) : isOutOfAllowance(user?.usage) ? (
+          <OutOfAllowance usage={user!.usage!} />
         ) : (
           <div className="card p-6 sm:p-8">
             <ServiceForm service={service} profiles={profiles} onAdded={added} onSubmit={run} userName={user?.name ?? ''} />

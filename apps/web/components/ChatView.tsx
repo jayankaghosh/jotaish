@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, ImagePlus, Send, X } from 'lucide-react';
 import { gqlStream } from '@/lib/gql';
+import { useAuth } from '@/lib/auth';
 import { photoToDataUrl } from '@/lib/image';
 import { MESSAGE_FIELDS } from '@/lib/fragments';
 import { serviceByType } from '@/lib/services';
 import type { Message, ReadingType } from '@/lib/types';
 import { ErrorNote, Markdown } from './ui';
+import { OutOfAllowance, isOutOfAllowance, usageLine } from './UsageNote';
 
 const STARTERS = [
   'Prepare my Kundli and explain it simply',
@@ -62,6 +64,7 @@ interface ChatEvent {
 }
 
 export function ChatView({ conversationId, initialMessages, initialPrompt, readOnly = false, readingHref = '/readings', onTitle }: ChatViewProps) {
+  const { user, refresh } = useAuth();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
@@ -157,6 +160,8 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
       setBusy(false);
       setDraft('');
       setStatus(null);
+      // Update the "consultations left" count.
+      void refresh();
     }
   }
 
@@ -213,7 +218,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
             </div>
           </div>
         )}
-        {onlyGreeting && !busy && !readOnly && (
+        {onlyGreeting && !busy && !readOnly && !isOutOfAllowance(user?.usage) && (
           <div className="ml-11">
             <p className="mb-2 text-xs text-faint">Try one of these, or type your own question:</p>
             <div className="flex flex-wrap gap-2">
@@ -225,7 +230,12 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
         )}
       </div>
 
-      {!readOnly && (
+      {!readOnly && !busy && isOutOfAllowance(user?.usage) && (
+        <div className="border-t border-line pt-4">
+          <OutOfAllowance usage={user!.usage!} />
+        </div>
+      )}
+      {!readOnly && (busy || !isOutOfAllowance(user?.usage)) && (
         <form onSubmit={submit} className="border-t border-line pt-4">
           <ErrorNote message={error} />
           {photo && (
@@ -273,7 +283,10 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
               <Send size={18} />
             </button>
           </div>
-          <p className="mt-2 text-center text-xs text-faint">Press Enter to send, Shift+Enter for a new line. Guidance only, not professional advice.</p>
+          <p className="mt-2 text-center text-xs text-faint">
+            {usageLine(user?.usage) ? <span className="text-muted">{usageLine(user?.usage)} · </span> : null}
+            Press Enter to send, Shift+Enter for a new line. Guidance only, not professional advice.
+          </p>
         </form>
       )}
     </div>

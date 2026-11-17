@@ -6,9 +6,9 @@ import { AdminShell } from '@/components/AdminShell';
 import { BackLink, ErrorNote, Spinner, formatDate } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { gql } from '@/lib/gql';
-import { READING_SUMMARY, USER_FIELDS } from '@/lib/fragments';
+import { READING_SUMMARY, USAGE_FIELDS, USER_FIELDS } from '@/lib/fragments';
 import { serviceByType } from '@/lib/services';
-import type { Conversation, Reading, User } from '@/lib/types';
+import type { Conversation, Reading, Usage, User } from '@/lib/types';
 
 type Tab = 'readings' | 'conversations' | 'profiles';
 
@@ -60,12 +60,26 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
                 <button className="btn-ghost" onClick={() => update(`mutation($id: ID!, $role: Role!) { setUserRole(userId: $id, role: $role) { role } }`, { id, role: user.role === 'ADMIN' ? 'USER' : 'ADMIN' })}>
                   {user.role === 'ADMIN' ? 'Remove admin' : 'Make admin'}
                 </button>
-                <button className={user.disabled ? 'btn-ghost' : 'btn-danger'} onClick={() => update(`mutation($id: ID!, $d: Boolean!) { setUserDisabled(userId: $id, disabled: $d) { disabled } }`, { id, d: !user.disabled })}>
-                  {user.disabled ? 'Enable account' : 'Disable account'}
+                <button
+                  className={user.disabled ? 'btn-ghost' : 'btn-danger'}
+                  onClick={() => {
+                    if (!user.disabled && !confirm(`Block ${user.name}? They will be signed out and won't be able to sign in until you unblock them.`)) return;
+                    void update(`mutation($id: ID!, $d: Boolean!) { setUserDisabled(userId: $id, disabled: $d) { disabled } }`, { id, d: !user.disabled });
+                  }}
+                >
+                  {user.disabled ? 'Unblock user' : 'Block user'}
                 </button>
               </div>
             )}
           </div>
+
+          {user.disabled && (
+            <div className="mb-6 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+              This user is blocked. They can't sign in or use Jotaish until you unblock them.
+            </div>
+          )}
+
+          <LimitCard user={user} onChange={(u) => setUser((prev) => (prev ? { ...prev, ...u } : prev))} />
 
           <div className="mb-6 flex gap-2">
             {([['readings', `Readings (${readings.length})`], ['conversations', `Conversations (${conversations.length})`], ['profiles', `Birth details (${user.profiles.length})`]] as [Tab, string][]).map(([k, l]) => (
@@ -124,5 +138,86 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
         </>
       )}
     </AdminShell>
+  );
+}
+
+const PERIOD_LABEL = { day: 'today', month: 'this month', total: 'in total' } as const;
+
+function LimitCard({ user, onChange }: { user: User; onChange: (u: Partial<User>) => void }) {
+  const initialMode = user.unlimitedCredits ? 'unlimited' : user.creditLimit != null ? 'custom' : 'default';
+  const [mode, setMode] = useState<'default' | 'custom' | 'unlimited'>(initialMode);
+  const [limit, setLimit] = useState(String(user.creditLimit ?? user.usage?.limit ?? 200));
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const usage = user.usage;
+
+  async function save() {
+    setBusy(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const { setUserLimit } = await gql<{ setUserLimit: Partial<User> & { usage: Usage } }>(
+        `mutation($id: ID!, $mode: String!, $limit: Int) { setUserLimit(userId: $id, mode: $mode, limit: $limit) { creditLimit unlimitedCredits usage { ${USAGE_FIELDS} } } }`,
+        { id: user.id, mode, limit: mode === 'custom' ? Number(limit) : null },
+      );
+      onChange(setUserLimit);
+      setSaved(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const invalid = mode === 'custom' && !/^\d+$/.test(limit.trim());
+
+  return (
+    <section className="card mb-8 p-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+        <h2 className="font-display text-2xl text-ink">AI allowance</h2>
+        {usage && (
+          <p className="text-sm text-muted">
+            Used <span className="text-ink">{usage.used}</span> credits (${usage.spentUsd.toFixed(3)}) {PERIOD_LABEL[usage.period]}
+            {usage.limit !== null ? <> of <span className="text-ink">{usage.limit}</span> · {usage.percentLeft}% left</> : ' · no limit'}
+          </p>
+        )}
+      </div>
+      {user.role === 'ADMIN' ? (
+        <p className="mt-3 text-sm text-muted">Admins are never limited.</p>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {([
+              ['default', 'Use the default', 'Follows the allowance in AI settings.'],
+              ['custom', 'Custom allowance', 'A different number of credits for this user.'],
+              ['unlimited', 'Unlimited', 'No limit for this user.'],
+            ] as const).map(([key, title, body]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => { setMode(key); setSaved(false); }}
+                className={`rounded-xl border p-4 text-left transition ${mode === key ? 'border-gold bg-gold/10' : 'border-line hover:border-gold/40'}`}
+              >
+                <span className="block text-ink">{title}</span>
+                <span className="text-xs text-muted">{body}</span>
+              </button>
+            ))}
+          </div>
+          {mode === 'custom' && (
+            <div className="mt-4">
+              <label className="label" htmlFor="user-limit">Credits {usage ? `per ${usage.period === 'total' ? 'account (never resets)' : usage.period}` : ''}</label>
+              <input id="user-limit" className="input sm:w-32" inputMode="numeric" value={limit} onChange={(e) => { setLimit(e.target.value); setSaved(false); }} />
+              <p className="hint">1 credit = $0.001 of AI cost. The period is the same as the default one in AI settings.</p>
+            </div>
+          )}
+          <div className="mt-4 flex items-center gap-3">
+            <button className="btn-primary" onClick={save} disabled={busy || invalid}>{busy ? <Spinner /> : 'Save'}</button>
+            {saved && <span className="text-sm text-ok">Saved.</span>}
+          </div>
+          <div className="mt-3"><ErrorNote message={error} /></div>
+        </>
+      )}
+    </section>
   );
 }

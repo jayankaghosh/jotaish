@@ -23,18 +23,23 @@ enum ReadingType {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  name          String
-  role          Role           @default(USER)
-  disabled      Boolean        @default(false)
-  createdAt     DateTime       @default(now())
-  lastSeenAt    DateTime?
-  profiles      BirthProfile[]
-  readings      Reading[]
-  conversations Conversation[]
-  usage         AiUsage[]
+  id               String         @id @default(cuid())
+  email            String         @unique
+  passwordHash     String
+  name             String
+  role             Role           @default(USER)
+  // Blocked accounts cannot sign in or use the API.
+  disabled         Boolean        @default(false)
+  // Per-user override of the default AI credit allowance (1 credit =
+  // $0.001 of model cost). Null means the default applies.
+  creditLimit      Int?
+  unlimitedCredits Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  lastSeenAt       DateTime?
+  profiles         BirthProfile[]
+  readings         Reading[]
+  conversations    Conversation[]
+  usage            AiUsage[]
 }
 
 // A person whose birth details are known. Every user has one "self" profile
@@ -78,17 +83,17 @@ model Reading {
 }
 
 model Conversation {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String    @default("New consultation")
-  topic     String    @default("general")
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String    @default("New consultation")
+  topic          String    @default("general")
   // Reading the person opened this conversation from, if any.
   focusReadingId String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  messages  Message[]
-  readings  Reading[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  messages       Message[]
+  readings       Reading[]
 
   @@index([userId, updatedAt])
 }

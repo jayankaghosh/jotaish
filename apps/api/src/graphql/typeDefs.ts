@@ -27,6 +27,26 @@ export const typeDefs = /* GraphQL */ `
     profiles: [BirthProfile!]!
     readingCount: Int!
     conversationCount: Int!
+    # Credit allowance override. Null when the default applies.
+    creditLimit: Int
+    unlimitedCredits: Boolean!
+    # Visible to the user themself and to admins.
+    usage: Usage
+  }
+
+  # AI spend in credits for the current period (1 credit = creditUsd dollars).
+  type Usage {
+    used: Int!
+    # Null means unlimited.
+    limit: Int
+    remaining: Int
+    percentLeft: Int
+    spentUsd: Float!
+    # day, month or total
+    period: String!
+    resetsAt: String
+    # default, custom, unlimited or admin
+    source: String!
   }
 
   type AuthPayload {
@@ -118,6 +138,10 @@ export const typeDefs = /* GraphQL */ `
     apiKeyPreview: String
     apiKeySource: String!
     temperature: Float!
+    # Default credits per period for every user. Null means unlimited.
+    creditLimit: Int
+    creditPeriod: String!
+    creditUsd: Float!
     tasks: [AiTaskSetting!]!
     recommendedModels: [RecommendedModel!]!
   }
@@ -223,11 +247,18 @@ export const typeDefs = /* GraphQL */ `
     model: String!
   }
 
+  input LimitSettingsInput {
+    # Null means unlimited.
+    limit: Int
+    period: String!
+  }
+
   input SettingsInput {
     apiKey: String
     clearApiKey: Boolean
     temperature: Float
     models: [ModelSettingInput!]
+    limits: LimitSettingsInput
   }
 
   type Query {
@@ -268,7 +299,10 @@ export const typeDefs = /* GraphQL */ `
     updateSettings(input: SettingsInput!): AdminSettings!
     testOpenRouter(model: String): TestResult!
     setUserRole(userId: ID!, role: Role!): User!
+    # Blocks or unblocks an account.
     setUserDisabled(userId: ID!, disabled: Boolean!): User!
+    # mode: default, custom (uses limit) or unlimited
+    setUserLimit(userId: ID!, mode: String!, limit: Int): User!
   }
 
   type Subscription {

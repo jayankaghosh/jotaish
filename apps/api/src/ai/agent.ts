@@ -4,6 +4,7 @@ import { userError } from '../lib/auth';
 import { complete, type ChatMessage, type ContentPart, type ToolDefinition } from './openrouter';
 import { astrologerSystemPrompt } from './prompts';
 import { saveProfile } from '../services/profiles';
+import { assertCanInteract } from '../services/limits';
 import * as readings from '../services/readings';
 import { SIGNS } from '../astro/vedic';
 import { SPREADS } from '../astro/tarot';
@@ -263,6 +264,7 @@ export async function sendMessage(
   if (imageDataUrl && (!imageDataUrl.startsWith('data:image/') || imageDataUrl.length > 7_000_000)) {
     throw userError('Please attach a JPG or PNG photo under 5 MB.');
   }
+  await assertCanInteract(await prisma.user.findUniqueOrThrow({ where: { id: userId } }));
 
   const created: Message[] = [];
   const record = async (data: Parameters<typeof prisma.message.create>[0]['data']) => {
