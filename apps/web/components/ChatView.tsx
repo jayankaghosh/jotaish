@@ -291,6 +291,9 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
 
 function Avatar() {
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/20 font-display text-gold" aria-hidden>J</div>
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/15" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/mark.svg" width={24} height={24} alt="" />
+    </div>
   );
 }

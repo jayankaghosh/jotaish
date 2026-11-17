@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
 import type { Attachment } from 'nodemailer/lib/mailer';
 import { marked } from 'marked';
@@ -141,6 +142,9 @@ export interface OutgoingMail {
   attachments?: Attachment[];
 }
 
+// The logo travels inside each email, as many mail apps block remote images.
+const LOGO = { filename: 'jotaish.png', path: fileURLToPath(new URL('../../assets/logo.png', import.meta.url)), cid: 'jotaish-logo' };
+
 // Sends one email and records it. Returns false instead of throwing, so a
 // mail problem never breaks the action that triggered it.
 export async function sendMail(mail: OutgoingMail, settings?: MailSettings): Promise<boolean> {
@@ -154,7 +158,7 @@ export async function sendMail(mail: OutgoingMail, settings?: MailSettings): Pro
       subject: mail.subject,
       html: mail.html,
       text: htmlToText(mail.html),
-      attachments: mail.attachments,
+      attachments: mail.html.includes('cid:jotaish-logo') ? [LOGO, ...(mail.attachments ?? [])] : mail.attachments,
     };
     if (s.provider === 'gmail') await sendWithGmail(s, message);
     else await transport(s).sendMail(message);
@@ -210,7 +214,7 @@ export function layout(heading: string, body: string, lang: Lang = 'en') {
   return `<!doctype html><html><body style="margin:0;background:#f4f1ea;font-family:Georgia,'Times New Roman',serif;color:#2a2540">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ea;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden">
-<tr><td style="background:#15132b;padding:22px 32px;color:#f3d79b;font-size:24px;letter-spacing:1px">&#9790; Jotaish</td></tr>
+<tr><td style="background:#15132b;padding:18px 32px;color:#f3d79b;font-size:24px;letter-spacing:1px"><img src="cid:jotaish-logo" width="36" height="36" alt="" style="vertical-align:middle;margin-right:10px;border:0">Jotaish</td></tr>
 <tr><td style="padding:32px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2a2540">
 <h1 style="font-family:Georgia,'Noto Sans Devanagari','Noto Sans Malayalam','Noto Sans Kannada','Noto Sans Bengali',serif;font-weight:normal;font-size:26px;margin:0 0 16px;color:#15132b">${escape(heading)}</h1>
 ${body}

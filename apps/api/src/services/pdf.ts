@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
 import { marked, type Token, type Tokens } from 'marked';
 import type { Reading } from '@prisma/client';
@@ -34,6 +35,7 @@ const INK = '#2a2540';
 const MUTED = '#6f6a96';
 const GOLD = '#b8862f';
 const NIGHT = '#15132b';
+const LOGO = fileURLToPath(new URL('../../assets/logo.png', import.meta.url));
 
 const TYPE_LABEL: Record<string, string> = {
   BIRTH_CHART: 'Kundli (Birth chart)',
@@ -217,7 +219,8 @@ export function readingPdf(reading: Reading, personName: string, lang: Lang = 'e
     doc.on('error', reject);
 
     doc.rect(0, 0, doc.page.width, 70).fill(NIGHT);
-    doc.font('serif').fontSize(20).fillColor('#f3d79b').text('Jotaish', 56, 24);
+    doc.image(LOGO, 56, 17, { width: 36, height: 36 });
+    doc.font('serif').fontSize(20).fillColor('#f3d79b').text('Jotaish', 100, 24);
     doc.font('body').fontSize(9).fillColor('#a59fc9').text(tr(TYPE_LABEL[reading.type] ?? 'Reading', undefined, lang), 56, 30, { align: 'right' });
 
     doc.y = 100;

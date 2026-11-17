@@ -48,6 +48,10 @@ The customer site works in English (default), Hindi, Malayalam, Kannada and Beng
 
 Kundli charts can be drawn in the North Indian (diamond), South Indian (fixed signs, Pisces at top left) or East Indian (fixed signs, Aries at top centre, anticlockwise) style. The Kundli and horoscope forms ask which tradition the person follows, guessing first from their language; the calculation is the same, but the report uses that region's terms, customs and remedies, and the chart style can be switched on any Kundli page.
 
+## Logo and icons
+
+The logo mark lives in `apps/web/public/brand/mark.svg`. Favicons, home-screen icons and the PNG used in emails and PDFs are made from it; after changing the mark, run `node scripts/brand-icons.mjs`.
+
 ## Run it locally
 
 Requirements: Node 20+, Docker.

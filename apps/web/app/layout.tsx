@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, Inter, Noto_Sans_Bengali, Noto_Sans_Devanagari, Noto_Sans_Kannada, Noto_Sans_Malayalam } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth';
 import { I18nProvider } from '@/lib/i18n';
@@ -15,7 +15,10 @@ const bengali = Noto_Sans_Bengali({ subsets: ['bengali'], variable: '--font-beng
 export const metadata: Metadata = {
   title: 'Jotaish - Your personal astrologer',
   description: 'Vedic astrology, horoscopes, tarot, numerology, palm reading and dream interpretation, with a personal astrologer to guide you.',
+  appleWebApp: { title: 'Jotaish', statusBarStyle: 'black-translucent' },
 };
+
+export const viewport: Viewport = { themeColor: '#15132b' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const fonts = [inter, cormorant, devanagari, malayalam, kannada, bengali].map((f) => f.variable).join(' ');
