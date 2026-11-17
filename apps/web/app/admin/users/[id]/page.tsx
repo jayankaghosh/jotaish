@@ -6,6 +6,7 @@ import { AdminShell } from '@/components/AdminShell';
 import { PaymentCard } from '@/components/PaymentCard';
 import { BackLink, ErrorNote, Spinner, formatDate } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { creditsLeft } from '@/lib/credits';
 import { gql } from '@/lib/gql';
 import { READING_SUMMARY, USAGE_FIELDS, USER_FIELDS } from '@/lib/fragments';
 import { serviceByType } from '@/lib/services';
@@ -188,6 +189,15 @@ function LimitCard({ user, onChange }: { user: User; onChange: (u: Partial<User>
     <section className="card mb-8 p-6">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
         <h2 className="font-display text-2xl text-ink">AI allowance</h2>
+        {usage && creditsLeft(usage) !== null && (
+          <p className="text-right">
+            <span className="text-xs uppercase tracking-wider text-faint">Total credits left</span>
+            <span className="ml-2 font-display text-3xl text-gold-soft">{creditsLeft(usage)!.toLocaleString('en-IN')}</span>
+            <span className="block text-xs text-muted">{(usage.remaining ?? 0).toLocaleString('en-IN')} free {PERIOD_LABEL[usage.period]} + {usage.balance.toLocaleString('en-IN')} bought</span>
+          </p>
+        )}
+      </div>
+      <div>
         {usage && (
           <p className="text-sm text-muted">
             Used <span className="text-ink">{usage.used}</span> credits (${usage.spentUsd.toFixed(3)}) {PERIOD_LABEL[usage.period]}
