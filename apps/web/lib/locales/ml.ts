@@ -164,6 +164,8 @@ const ml: Messages = {
   'common.seeAll': 'എല്ലാം കാണുക',
   'common.or': 'അല്ലെങ്കിൽ',
   'language.choose': 'ഭാഷ തിരഞ്ഞെടുക്കുക',
+  'language.moreCredits': 'കൂടുതൽ ക്രെഡിറ്റുകൾ വേണം',
+  'language.creditsNote': 'ഇന്ത്യൻ ഭാഷകളിലെ ഫലങ്ങൾക്കും ചാറ്റുകൾക്കും ഇംഗ്ലീഷിനെക്കാൾ കൂടുതൽ ക്രെഡിറ്റുകൾ വേണം.',
   'nav.home': 'ഹോം',
   'nav.ask': 'Jotaish-നോട് ചോദിക്കൂ',
   'nav.readings': 'എന്റെ ഫലങ്ങൾ',

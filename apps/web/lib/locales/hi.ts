@@ -179,6 +179,8 @@ const hi: Messages = {
   'common.seeAll': 'सभी देखें',
   'common.or': 'या',
   'language.choose': 'भाषा चुनें',
+  'language.moreCredits': 'ज़्यादा क्रेडिट लगते हैं',
+  'language.creditsNote': 'भारतीय भाषाओं में रीडिंग और चैट में अंग्रेज़ी से ज़्यादा क्रेडिट लगते हैं।',
   'nav.home': 'होम',
   'nav.ask': 'Jotaish से पूछें',
   'nav.readings': 'मेरी रीडिंग',

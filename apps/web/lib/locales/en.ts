@@ -15,6 +15,8 @@ const en = {
   'common.seeAll': 'See all',
   'common.or': 'or',
   'language.choose': 'Choose language',
+  'language.moreCredits': 'Uses more credits',
+  'language.creditsNote': 'Readings and chats in Indian languages use more credits than in English.',
   'nav.home': 'Home',
   'nav.ask': 'Ask Jotaish',
   'nav.readings': 'My readings',

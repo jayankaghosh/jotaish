@@ -178,6 +178,8 @@ const kn: Messages = {
   'common.seeAll': 'ಎಲ್ಲವನ್ನೂ ನೋಡಿ',
   'common.or': 'ಅಥವಾ',
   'language.choose': 'ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ',
+  'language.moreCredits': 'ಹೆಚ್ಚು ಕ್ರೆಡಿಟ್‌ಗಳು ಬೇಕು',
+  'language.creditsNote': 'ಭಾರತೀಯ ಭಾಷೆಗಳಲ್ಲಿ ಫಲಾದೇಶಗಳು ಮತ್ತು ಚಾಟ್‌ಗಳಿಗೆ ಇಂಗ್ಲಿಷ್‌ಗಿಂತ ಹೆಚ್ಚು ಕ್ರೆಡಿಟ್‌ಗಳು ಬೇಕು.',
   'nav.home': 'ಮುಖಪುಟ',
   'nav.ask': 'Jotaish ಅವರನ್ನು ಕೇಳಿ',
   'nav.readings': 'ನನ್ನ ಫಲಾದೇಶಗಳು',

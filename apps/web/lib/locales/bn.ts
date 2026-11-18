@@ -175,6 +175,8 @@ const bn: Messages = {
   'common.seeAll': 'সব দেখুন',
   'common.or': 'অথবা',
   'language.choose': 'ভাষা বেছে নিন',
+  'language.moreCredits': 'বেশি ক্রেডিট লাগে',
+  'language.creditsNote': 'ভারতীয় ভাষায় ফলাদেশ আর চ্যাটে ইংরেজির চেয়ে বেশি ক্রেডিট লাগে।',
   'nav.home': 'হোম',
   'nav.ask': 'Jotaish-কে জিজ্ঞাসা করুন',
   'nav.readings': 'আমার ফলাদেশ',
