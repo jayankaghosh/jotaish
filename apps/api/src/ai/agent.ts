@@ -349,7 +349,7 @@ async function answer(userId: string, conversationId: string, content: string, i
       // Indian scripts take several times more tokens than English, and the
       // model's thinking comes out of the same budget, so there is room for
       // a full answer in any language. Light thinking is enough for a chat.
-      const reply = await complete({ task: 'chat', userId, messages, tools, maxTokens: 4000, reasoning: 'low', onToken: (text) => emit({ type: 'token', text }) });
+      const reply = await complete({ task: currentLang() === 'en' ? 'chat' : 'chat_languages', userId, messages, tools, maxTokens: 4000, reasoning: 'low', onToken: (text) => emit({ type: 'token', text }) });
       // Never leave the person with a blank reply.
       if (!reply.content.trim() && !reply.toolCalls.length) reply.content = tr("I'm sorry, I couldn't respond just now.");
       await record({

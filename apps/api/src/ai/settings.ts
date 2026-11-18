@@ -6,6 +6,11 @@ import { env } from '../lib/env';
 // astrologer conversation gets the strongest reasoning model.
 export const AI_TASKS = {
   chat: { label: 'Astrologer conversation', hint: 'Talks to users and calls the reading tools. Needs tool calling.', needs: ['tools'] },
+  chat_languages: {
+    label: 'Astrologer conversation in other languages',
+    hint: 'Used instead of the one above when the person uses Jotaish in Hindi, Malayalam, Kannada or Bengali. Some models, Claude especially, need several times more tokens for Indian scripts; Gemini models need far fewer.',
+    needs: ['tools'],
+  },
   birth_chart: { label: 'Kundli / birth chart report', hint: 'Long, structured interpretation of computed chart data.', needs: [] },
   horoscope: { label: 'Daily and weekly horoscopes', hint: 'Short readings from current transits. A fast model is enough.', needs: [] },
   compatibility: { label: 'Compatibility matching', hint: 'Compares two charts side by side.', needs: [] },
@@ -35,6 +40,7 @@ export const RECOMMENDED_MODELS = [
 
 export const DEFAULT_MODELS: Record<AiTask, string> = {
   chat: 'anthropic/claude-sonnet-5.5',
+  chat_languages: 'anthropic/claude-sonnet-5.5',
   birth_chart: 'anthropic/claude-opus-5.5',
   horoscope: 'google/gemini-3.8-flash',
   compatibility: 'anthropic/claude-sonnet-5.5',
