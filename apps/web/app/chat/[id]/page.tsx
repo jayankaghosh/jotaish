@@ -24,7 +24,7 @@ function ConversationScreen({ id }: { id: string }) {
 
   useEffect(() => {
     setConversation(undefined);
-    gql<{ conversation: Conversation | null }>(`query($id: ID!) { conversation(id: $id) { id title messages { ${MESSAGE_FIELDS} } } }`, { id })
+    gql<{ conversation: Conversation | null }>(`query($id: ID!) { conversation(id: $id) { id title focusReadingType hasKundli messages { ${MESSAGE_FIELDS} } } }`, { id })
       .then((d) => setConversation(d.conversation))
       .catch(() => setConversation(null));
   }, [id]);
@@ -69,6 +69,8 @@ function ConversationScreen({ id }: { id: string }) {
               conversationId={conversation.id}
               initialMessages={conversation.messages ?? []}
               initialPrompt={prompt}
+              focusReadingType={conversation.focusReadingType}
+              hasKundli={conversation.hasKundli}
               onTitle={(title) => {
                 setConversation((c) => (c ? { ...c, title } : c));
                 setSidebarKey((k) => k + 1);

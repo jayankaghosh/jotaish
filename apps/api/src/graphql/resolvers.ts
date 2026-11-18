@@ -165,6 +165,9 @@ export const resolvers = {
     updatedAt: iso('updatedAt'),
     lastMessage: (c: any) => c.messages?.[0]?.content?.slice(0, 140) ?? null,
     messages: (c: any) => c.messages ?? prisma.message.findMany({ where: { conversationId: c.id }, orderBy: { createdAt: 'asc' } }),
+    focusReadingType: async (c: { focusReadingId: string | null }) =>
+      c.focusReadingId ? ((await prisma.reading.findUnique({ where: { id: c.focusReadingId }, select: { type: true } }))?.type ?? null) : null,
+    hasKundli: async (c: { userId: string }) => (await prisma.reading.count({ where: { userId: c.userId, type: 'BIRTH_CHART' } })) > 0,
   },
   Message: { createdAt: iso('createdAt'), model: adminOnly('model'), toolCalls: adminOnly('toolCalls') },
   UsageRow: { createdAt: iso('createdAt') },

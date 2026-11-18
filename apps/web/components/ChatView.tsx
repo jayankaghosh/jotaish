@@ -14,6 +14,22 @@ import { ErrorNote, Markdown } from './ui';
 import { OutOfAllowance, isOutOfAllowance, useUsageLine } from './UsageNote';
 
 const STARTERS: MessageKey[] = ['chat.starter1', 'chat.starter2', 'chat.starter3', 'chat.starter4', 'chat.starter5', 'chat.starter6'];
+// Questions about the reading a chat was opened from.
+const ABOUT_READING: Record<ReadingType, MessageKey[]> = {
+  BIRTH_CHART: ['chat.aboutKundli1', 'chat.aboutKundli2', 'chat.aboutKundli3', 'chat.aboutKundli4'],
+  HOROSCOPE: ['chat.aboutHoroscope1', 'chat.aboutHoroscope2', 'chat.aboutHoroscope3', 'chat.aboutHoroscope4'],
+  TAROT: ['chat.aboutTarot1', 'chat.aboutTarot2', 'chat.aboutTarot3', 'chat.aboutTarot4'],
+  NUMEROLOGY: ['chat.aboutNumerology1', 'chat.aboutNumerology2', 'chat.aboutNumerology3', 'chat.aboutNumerology4'],
+  PALM: ['chat.aboutPalm1', 'chat.aboutPalm2', 'chat.aboutPalm3', 'chat.aboutPalm4'],
+  DREAM: ['chat.aboutDream1', 'chat.aboutDream2', 'chat.aboutDream3', 'chat.aboutDream4'],
+  COMPATIBILITY: ['chat.aboutCompatibility1', 'chat.aboutCompatibility2', 'chat.aboutCompatibility3', 'chat.aboutCompatibility4'],
+};
+
+function startersFor(focusReadingType: ReadingType | null | undefined, hasKundli: boolean): MessageKey[] {
+  if (focusReadingType) return ABOUT_READING[focusReadingType];
+  // No point offering to prepare a Kundli the person already has.
+  return hasKundli ? ['chat.starterExplainKundli', ...STARTERS.slice(1)] : STARTERS;
+}
 const THINKING: MessageKey[] = ['chat.thinking1', 'chat.thinking2', 'chat.thinking3', 'chat.thinking4'];
 
 // A tool result as a card that links to the saved reading.
@@ -49,6 +65,9 @@ interface ChatViewProps {
   readOnly?: boolean;
   readingHref?: string;
   onTitle?: (title: string) => void;
+  // Decide which questions are suggested before the first message.
+  focusReadingType?: ReadingType | null;
+  hasKundli?: boolean;
 }
 
 interface ChatEvent {
@@ -57,7 +76,7 @@ interface ChatEvent {
   message?: Message | null;
 }
 
-export function ChatView({ conversationId, initialMessages, initialPrompt, readOnly = false, readingHref = '/readings', onTitle }: ChatViewProps) {
+export function ChatView({ conversationId, initialMessages, initialPrompt, readOnly = false, readingHref = '/readings', onTitle, focusReadingType, hasKundli = false }: ChatViewProps) {
   const { user, refresh } = useAuth();
   const t = useT();
   const usageLine = useUsageLine();
@@ -218,7 +237,7 @@ export function ChatView({ conversationId, initialMessages, initialPrompt, readO
           <div className="ml-11">
             <p className="mb-2 text-xs text-faint">{t('chat.tryThese')}</p>
             <div className="flex flex-wrap gap-2">
-              {STARTERS.map((k) => (
+              {startersFor(focusReadingType, hasKundli).map((k) => (
                 <button key={k} onClick={() => send(t(k))} className="rounded-full border border-gold/30 bg-gold/[0.06] px-3.5 py-2 text-left text-sm text-gold-soft hover:border-gold/60">{t(k)}</button>
               ))}
             </div>

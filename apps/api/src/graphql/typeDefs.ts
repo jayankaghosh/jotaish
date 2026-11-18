@@ -123,6 +123,10 @@ export const typeDefs = /* GraphQL */ `
     updatedAt: String!
     lastMessage: String
     messages: [Message!]!
+    # The kind of reading the chat was opened from, if any.
+    focusReadingType: ReadingType
+    # Whether the owner already has a Kundli, so suggestions don't offer one.
+    hasKundli: Boolean!
   }
 
   type Message {

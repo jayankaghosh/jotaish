@@ -76,6 +76,8 @@ export interface Conversation {
   updatedAt: string;
   lastMessage?: string | null;
   messages?: Message[];
+  focusReadingType?: ReadingType | null;
+  hasKundli?: boolean;
 }
 
 export interface Place {
