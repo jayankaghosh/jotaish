@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { prisma } from '../lib/db';
 import { env } from '../lib/env';
-import { getApiKey, getModels, getTemperature, type AiTask } from './settings';
+import { getApiKey, getTemperature, modelFor, type AiTask } from './settings';
 import { chargeOverflow } from '../services/limits';
 import { currentLang, tr } from '../i18n';
 
@@ -83,7 +83,7 @@ export interface Completion {
 export async function complete(opts: CompletionOptions): Promise<Completion> {
   const apiKey = await getApiKey();
   if (!apiKey) throw new AiNotConfiguredError();
-  const model = opts.model ?? (await getModels())[opts.task];
+  const model = opts.model ?? (await modelFor(opts.task, currentLang()));
   const started = Date.now();
   let usage: { prompt_tokens?: number; completion_tokens?: number; cost?: number } = {};
   let error: string | null = null;

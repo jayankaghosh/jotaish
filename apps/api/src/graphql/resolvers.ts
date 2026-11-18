@@ -18,7 +18,7 @@ import { checkCode, getSignInSettings, requestCode, setSignInSettings } from '..
 import { greeting, sendMessage, streamMessage, type ChatEvent } from '../ai/agent';
 import { AiError, complete, listOpenRouterModels } from '../ai/openrouter';
 import {
-  AI_TASKS, RECOMMENDED_MODELS, getApiKey, getModels, getTemperature, setApiKey, setModels, setTemperature, type AiTask,
+  AI_TASKS, RECOMMENDED_MODELS, getApiKey, getModels, languagesKey, getTemperature, setApiKey, setModels, setTemperature, type AiTask,
 } from '../ai/settings';
 import { env } from '../lib/env';
 import { todaySky } from '../services/today';
@@ -86,7 +86,7 @@ async function adminSettings() {
     payment,
     mail: mailView(mail),
     signIn,
-    tasks: (Object.keys(AI_TASKS) as AiTask[]).map((task) => ({ task, ...AI_TASKS[task], needs: [...AI_TASKS[task].needs], model: models[task] })),
+    tasks: (Object.keys(AI_TASKS) as AiTask[]).map((task) => ({ task, ...AI_TASKS[task], needs: [...AI_TASKS[task].needs], model: models[task], languagesModel: models[languagesKey(task)] ?? null })),
     recommendedModels: RECOMMENDED_MODELS,
   };
 }
@@ -408,8 +408,7 @@ export const resolvers = {
       if (input.mail) await setMailSettings(input.mail);
       if (input.signIn) await setSignInSettings(input.signIn);
       if (input.models?.length) {
-        const valid = input.models.filter((m: { task: string; model: string }) => m.task in AI_TASKS && m.model.trim());
-        await setModels(Object.fromEntries(valid.map((m: { task: string; model: string }) => [m.task, m.model.trim()])));
+        await setModels(Object.fromEntries(input.models.map((m: { task: string; model: string }) => [m.task, m.model])));
       }
       return adminSettings();
     },

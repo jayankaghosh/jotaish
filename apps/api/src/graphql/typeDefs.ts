@@ -234,6 +234,9 @@ export const typeDefs = /* GraphQL */ `
     hint: String!
     needs: [String!]!
     model: String!
+    # Used instead of model for every language but English. Null when the
+    # task uses the same model in every language.
+    languagesModel: String
   }
 
   type RecommendedModel {

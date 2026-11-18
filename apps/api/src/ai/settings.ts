@@ -1,16 +1,12 @@
 import { prisma } from '../lib/db';
 import { decrypt, encrypt } from '../lib/crypto';
 import { env } from '../lib/env';
+import type { Lang } from '../i18n';
 
 // Each AI job can run on its own model, so cheap jobs stay cheap and the
 // astrologer conversation gets the strongest reasoning model.
 export const AI_TASKS = {
   chat: { label: 'Astrologer conversation', hint: 'Talks to users and calls the reading tools. Needs tool calling.', needs: ['tools'] },
-  chat_languages: {
-    label: 'Astrologer conversation in other languages',
-    hint: 'Used instead of the one above when the person uses Jotaish in Hindi, Malayalam, Kannada or Bengali. Some models, Claude especially, need several times more tokens for Indian scripts; Gemini models need far fewer.',
-    needs: ['tools'],
-  },
   birth_chart: { label: 'Kundli / birth chart report', hint: 'Long, structured interpretation of computed chart data.', needs: [] },
   horoscope: { label: 'Daily and weekly horoscopes', hint: 'Short readings from current transits. A fast model is enough.', needs: [] },
   compatibility: { label: 'Compatibility matching', hint: 'Compares two charts side by side.', needs: [] },
@@ -40,7 +36,6 @@ export const RECOMMENDED_MODELS = [
 
 export const DEFAULT_MODELS: Record<AiTask, string> = {
   chat: 'anthropic/claude-sonnet-5.5',
-  chat_languages: 'anthropic/claude-sonnet-5.5',
   birth_chart: 'anthropic/claude-opus-5.5',
   horoscope: 'google/gemini-3.8-flash',
   compatibility: 'anthropic/claude-sonnet-5.5',
@@ -73,14 +68,37 @@ export async function setApiKey(key: string | null) {
   });
 }
 
-export async function getModels(): Promise<Record<AiTask, string>> {
+// A task can have a second model for every language but English, saved as
+// "<task>_languages". Some models (Claude especially) need several times more
+// tokens for Indian scripts than others, so this keeps those readings
+// affordable without changing the English ones.
+const LANGUAGES = '_languages';
+export const languagesKey = (task: AiTask) => `${task}${LANGUAGES}`;
+
+export function isModelKey(key: string) {
+  return key in AI_TASKS || (key.endsWith(LANGUAGES) && key.slice(0, -LANGUAGES.length) in AI_TASKS);
+}
+
+// Every saved choice: one per task, plus any other-language ones.
+export async function getModels(): Promise<Record<string, string>> {
   const row = await prisma.setting.findUnique({ where: { key: MODELS_SETTING } });
-  const saved = row ? (JSON.parse(row.value) as Partial<Record<AiTask, string>>) : {};
+  const saved = row ? (JSON.parse(row.value) as Record<string, string>) : {};
   return { ...DEFAULT_MODELS, ...saved };
 }
 
-export async function setModels(models: Partial<Record<AiTask, string>>) {
-  const merged = { ...(await getModels()), ...models };
+export async function modelFor(task: AiTask, lang: Lang): Promise<string> {
+  const models = await getModels();
+  return (lang !== 'en' && models[languagesKey(task)]) || models[task];
+}
+
+// An empty model removes an other-language choice, so the task's main model is used.
+export async function setModels(models: Record<string, string>) {
+  const merged: Record<string, string> = { ...(await getModels()) };
+  for (const [key, model] of Object.entries(models)) {
+    if (!isModelKey(key)) continue;
+    if (model.trim()) merged[key] = model.trim();
+    else if (key.endsWith(LANGUAGES)) delete merged[key];
+  }
   const value = JSON.stringify(merged);
   await prisma.setting.upsert({ where: { key: MODELS_SETTING }, create: { key: MODELS_SETTING, value }, update: { value } });
 }

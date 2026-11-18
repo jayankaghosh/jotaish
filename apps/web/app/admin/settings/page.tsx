@@ -8,7 +8,7 @@ import { ErrorNote, PageTitle, Spinner, Tip } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { gql } from '@/lib/gql';
 
-interface TaskSetting { task: string; label: string; hint: string; needs: string[]; model: string }
+interface TaskSetting { task: string; label: string; hint: string; needs: string[]; model: string; languagesModel: string | null }
 interface Recommended { id: string; label: string; strengths: string; vision: boolean; tools: boolean }
 interface Settings {
   apiKeySet: boolean;
@@ -42,14 +42,15 @@ interface MailSettings {
 interface SignInSettings { codeMinutes: number; resendSeconds: number; maxCodes: number; windowMinutes: number; maxAttempts: number }
 interface CatalogModel { id: string; name: string; promptPrice: number; completionPrice: number; vision: boolean; tools: boolean }
 
-const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } mail { provider gmailClientId gmailClientSecretSet gmailAddress host port secure username passwordSet fromName fromEmail adminEmails configured } signIn { codeMinutes resendSeconds maxCodes windowMinutes maxAttempts } tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
+const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } mail { provider gmailClientId gmailClientSecretSet gmailAddress host port secure username passwordSet fromName fromEmail adminEmails configured } signIn { codeMinutes resendSeconds maxCodes windowMinutes maxAttempts } tasks { task label hint needs model languagesModel } recommendedModels { id label strengths vision tools }`;
 
 export default function AdminSettings() {
   const { refresh } = useAuth();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [catalog, setCatalog] = useState<CatalogModel[]>([]);
   const [apiKey, setApiKey] = useState('');
-  const [models, setModels] = useState<Record<string, string>>({});
+  // Null means a task has no separate other-language model.
+  const [models, setModels] = useState<Record<string, string | null>>({});
   const [temperature, setTemperature] = useState(0.7);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -59,7 +60,8 @@ export default function AdminSettings() {
 
   function apply(s: Settings) {
     setSettings(s);
-    setModels(Object.fromEntries(s.tasks.map((t) => [t.task, t.model])));
+    // Other-language choices are saved as "<task>_languages".
+    setModels(Object.fromEntries(s.tasks.flatMap((t) => [[t.task, t.model], [`${t.task}_languages`, t.languagesModel]])));
     setTemperature(s.temperature);
   }
 
@@ -76,7 +78,7 @@ export default function AdminSettings() {
     setSaved(false);
     try {
       const { updateSettings } = await gql<{ updateSettings: Settings }>(`mutation($input: SettingsInput!) { updateSettings(input: $input) { ${SETTINGS_FIELDS} } }`, {
-        input: { apiKey: apiKey || null, temperature, models: Object.entries(models).map(([task, model]) => ({ task, model })), ...extra },
+        input: { apiKey: apiKey || null, temperature, models: Object.entries(models).map(([task, model]) => ({ task, model: model ?? '' })), ...extra },
       });
       apply(updateSettings);
       setApiKey('');
@@ -158,8 +160,11 @@ export default function AdminSettings() {
           </datalist>
           <div className="space-y-5">
             {settings.tasks.map((t) => {
-              const chosen = byId.get(models[t.task]);
-              const missing = t.needs.filter((n) => chosen && !(n === 'vision' ? chosen.vision : chosen.tools));
+              const languagesKey = `${t.task}_languages`;
+              const separate = models[languagesKey] != null;
+              const picker = (key: string) => (
+                <ModelPicker needs={t.needs} value={models[key] ?? ''} onChange={(v) => setModels({ ...models, [key]: v })} recommended={settings.recommendedModels} byId={byId} />
+              );
               return (
                 <div key={t.task} className="grid gap-3 border-b border-line pb-5 last:border-0 md:grid-cols-[1fr_1.3fr]">
                   <div>
@@ -167,21 +172,22 @@ export default function AdminSettings() {
                     <p className="text-xs text-muted">{t.hint}</p>
                   </div>
                   <div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <select className="input sm:w-56" value={settings.recommendedModels.some((r) => r.id === models[t.task]) ? models[t.task] : ''} onChange={(e) => e.target.value && setModels({ ...models, [t.task]: e.target.value })}>
-                        <option value="">Custom model…</option>
-                        {settings.recommendedModels.filter((r) => t.needs.every((n) => (n === 'vision' ? r.vision : r.tools))).map((r) => (
-                          <option key={r.id} value={r.id}>{r.label}</option>
-                        ))}
-                      </select>
-                      <input className="input flex-1 font-mono text-xs" list="catalog" value={models[t.task] ?? ''} onChange={(e) => setModels({ ...models, [t.task]: e.target.value })} />
-                    </div>
-                    <p className="hint">
-                      {chosen
-                        ? `$${chosen.promptPrice.toFixed(2)} / $${chosen.completionPrice.toFixed(2)}${chosen.vision ? ' · images' : ''}${chosen.tools ? ' · tools' : ''}`
-                        : catalog.length ? 'Not found in the OpenRouter catalogue. Check the id.' : ''}
-                    </p>
-                    {missing.length > 0 && <p className="mt-1 text-xs text-danger">This model does not support {missing.join(' and ')}, which this task needs.</p>}
+                    {picker(t.task)}
+                    <label className="mt-2 flex items-start gap-2 text-sm text-muted">
+                      <input
+                        type="checkbox"
+                        className="mt-1 accent-[var(--color-gold)]"
+                        checked={separate}
+                        onChange={(e) => setModels({ ...models, [languagesKey]: e.target.checked ? models[t.task] : null })}
+                      />
+                      <span>Use a different model for Hindi, Malayalam, Kannada and Bengali</span>
+                    </label>
+                    {separate && (
+                      <div className="mt-2 border-l-2 border-gold/30 pl-3">
+                        {picker(languagesKey)}
+                        <p className="hint">Claude models use about four times as many tokens for Indian scripts as Gemini models do.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -712,5 +718,38 @@ function SignInCodeSettings({ settings, onSaved }: { settings: Settings; onSaved
       </div>
       <div className="mt-3"><ErrorNote message={error} /></div>
     </section>
+  );
+}
+
+interface PickerProps {
+  needs: string[];
+  value: string;
+  onChange: (model: string) => void;
+  recommended: Recommended[];
+  byId: Map<string, CatalogModel>;
+}
+
+// A recommended model, or any id from the OpenRouter catalogue, with its price.
+function ModelPicker({ needs, value, onChange, recommended, byId }: PickerProps) {
+  const chosen = byId.get(value);
+  const missing = needs.filter((n) => chosen && !(n === 'vision' ? chosen.vision : chosen.tools));
+  return (
+    <div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <select className="input sm:w-56" value={recommended.some((r) => r.id === value) ? value : ''} onChange={(e) => e.target.value && onChange(e.target.value)}>
+          <option value="">Custom model…</option>
+          {recommended.filter((r) => needs.every((n) => (n === 'vision' ? r.vision : r.tools))).map((r) => (
+            <option key={r.id} value={r.id}>{r.label}</option>
+          ))}
+        </select>
+        <input className="input flex-1 font-mono text-xs" list="catalog" value={value} onChange={(e) => onChange(e.target.value)} />
+      </div>
+      <p className="hint">
+        {chosen
+          ? `$${chosen.promptPrice.toFixed(2)} / $${chosen.completionPrice.toFixed(2)}${chosen.vision ? ' · images' : ''}${chosen.tools ? ' · tools' : ''}`
+          : byId.size ? 'Not found in the OpenRouter catalogue. Check the id.' : ''}
+      </p>
+      {missing.length > 0 && <p className="mt-1 text-xs text-danger">This model does not support {missing.join(' and ')}, which this task needs.</p>}
+    </div>
   );
 }

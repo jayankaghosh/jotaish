@@ -131,7 +131,10 @@ async function writePart(task: keyof typeof REPORT_PROMPTS, userId: string, payl
     { role: 'system', content: system },
     { role: 'user', content },
   ];
-  const maxTokens = REPORT_TOKENS[task] ?? 6000;
+  // Indian scripts take several times more tokens than English on some
+  // models, so other languages get more room. Without it the report runs
+  // out and every continuation sends the whole text written so far again.
+  const maxTokens = (REPORT_TOKENS[task] ?? 6000) * (currentLang() === 'en' ? 1 : 3);
   // The data is already calculated, so light thinking is enough and the
   // report starts much sooner.
   let reply = await complete({ task, userId, messages, maxTokens, reasoning: 'low' });

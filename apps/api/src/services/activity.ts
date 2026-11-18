@@ -16,7 +16,8 @@ interface Entry {
 }
 
 const credits = (cost: number | null) => (cost ?? 0) / CREDIT_USD;
-const taskLabel = (task: string) => AI_TASKS[task as AiTask]?.label ?? task;
+// Some chat calls were recorded as chat_languages for a short while.
+const taskLabel = (task: string) => AI_TASKS[task.replace(/_languages$/, '') as AiTask]?.label ?? task;
 
 function sum(rows: AiUsage[]) {
   return {
