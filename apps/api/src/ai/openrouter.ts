@@ -1,8 +1,26 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { prisma } from '../lib/db';
 import { env } from '../lib/env';
 import { getApiKey, getModels, getTemperature, type AiTask } from './settings';
 import { chargeOverflow } from '../services/limits';
-import { tr } from '../i18n';
+import { currentLang, tr } from '../i18n';
+
+// What the AI calls made inside a piece of work were for, recorded with each
+// call so admins can see where a user's credits went.
+interface UsageScope {
+  conversationId?: string | null;
+  // Ids of the usage rows recorded in this scope, so a reading can claim them
+  // once it is saved.
+  ids: string[];
+}
+
+const usageScope = new AsyncLocalStorage<UsageScope>();
+
+// Runs fn in a scope of its own, keeping the conversation of the outer one.
+export async function trackUsage<T>(context: { conversationId?: string | null }, fn: (ids: string[]) => Promise<T>): Promise<T> {
+  const scope: UsageScope = { conversationId: context.conversationId ?? usageScope.getStore()?.conversationId, ids: [] };
+  return usageScope.run(scope, () => fn(scope.ids));
+}
 
 export type ContentPart =
   | { type: 'text'; text: string }
@@ -115,7 +133,8 @@ export async function complete(opts: CompletionOptions): Promise<Completion> {
     const completionTokens = usage.completion_tokens ?? 0;
     // Allowances depend on cost, so estimate it when OpenRouter doesn't say.
     const cost = usage.cost ?? (promptTokens || completionTokens ? await estimateCost(model, promptTokens, completionTokens) : null);
-    await prisma.aiUsage
+    const scope = usageScope.getStore();
+    const row = await prisma.aiUsage
       .create({
         data: {
           userId: opts.userId ?? null,
@@ -126,10 +145,13 @@ export async function complete(opts: CompletionOptions): Promise<Completion> {
           cost,
           latencyMs: Date.now() - started,
           error,
+          language: currentLang(),
+          conversationId: scope?.conversationId ?? null,
         },
       })
-      .catch(() => undefined);
-    if (opts.userId && cost) await chargeOverflow(opts.userId, cost).catch(() => undefined);
+      .catch(() => null);
+    if (row) scope?.ids.push(row.id);
+    if (opts.userId && cost && row) await chargeOverflow(opts.userId, row).catch(() => undefined);
   }
 }
 

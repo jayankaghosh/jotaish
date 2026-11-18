@@ -84,6 +84,16 @@ npm run dev:web
 
 Open the admin console at http://localhost:3000/admin/login, sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `apps/api/.env`, go to **Settings** and paste an OpenRouter API key. Readings work once the key is saved. The customer site is at http://localhost:3000.
 
+## Updating the server
+
+On the server, from the project folder:
+
+```bash
+npm run deploy
+```
+
+It pulls `main`, installs packages, applies database migrations (`prisma migrate deploy`, never `migrate dev`, which is for development only), builds the website and restarts the PM2 apps that run from this folder. Add `-- --places` to reload the birthplace list too, which is only needed when `apps/api/prisma/places.ts` changes.
+
 ## Admin console
 
 The console lives at `/admin` with its own sign-in page and header. Nothing in the customer site links to it, and customers never see model names, provider errors or admin wording; technical failure details are recorded for the console only.
@@ -91,7 +101,7 @@ The console lives at `/admin` with its own sign-in page and header. Nothing in t
 
 - **Overview**: users, readings by type, AI calls, token use and cost per model, recent calls with errors.
 - **Users**: search, open a user to see their birth details, every reading and every conversation (including which tools the astrologer called and which models answered). Promote to admin or disable an account.
-- **Users > a user**: block or unblock the account (blocked users are signed out and can't sign in), and set their AI allowance: the default, a custom number of credits, or unlimited.
+- **Users > a user**: block or unblock the account (blocked users are signed out and can't sign in), and set their AI allowance: the default, a custom number of credits, or unlimited. **Where credits went** lists every AI call made for them over the last day to 90 days, grouped into what they did (each reading, each stretch of chat) with its language, models, tokens and credits, plus totals by kind of work and by language.
 - **AI allowance**: every user gets a default number of credits per day, month or in total (set in Settings). Credits follow the real OpenRouter cost of each call made for that user (1 credit = $0.001), so heavier models and long reports use more. When a cost isn't reported it is estimated from the model's catalogue price. Customers only see the percentage of their allowance left; admins are never limited.
 - **Selling credits**: in Settings, set a UPI ID, upload the QR code and fill the price table (₹ to credits). Customers buy on the Credits page in three steps: choose an amount (only whole multiples of a row, with the nearest valid amounts suggested), pay by UPI, then upload a screenshot. Bought credits are used after the free allowance and never expire.
 - **Payments**: every screenshot waits in the Payments tab (with a count in the header). Approve to add the credits (the requested number or a different one), or reject with a reason. Customers see each screenshot they sent with its outcome: credits added, or the rejection reason. Each user's page also lets you give or remove credits by hand, with every change kept in a history.

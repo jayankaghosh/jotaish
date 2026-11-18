@@ -1,7 +1,7 @@
 import type { Message, Reading } from '@prisma/client';
 import { prisma } from '../lib/db';
 import { userError } from '../lib/auth';
-import { complete, type ChatMessage, type ContentPart, type ToolDefinition } from './openrouter';
+import { complete, trackUsage, type ChatMessage, type ContentPart, type ToolDefinition } from './openrouter';
 import { astrologerSystemPrompt } from './prompts';
 import { LANGUAGE_NAMES, currentLang, tr, withLang, type Lang } from '../i18n';
 import { saveProfile } from '../services/profiles';
@@ -232,7 +232,7 @@ async function personContext(userId: string, focusReadingId: string | null) {
 
 function toChatMessages(history: Message[], latestId: string): ChatMessage[] {
   return history.map((m): ChatMessage => {
-    if (m.role === 'tool') return { role: 'tool', tool_call_id: m.toolCallId!, content: m.content };
+    if (m.role === 'tool') return { role: 'tool', tool_call_id: m.toolCallId!, content: compactToolResult(m.content) };
     if (m.role === 'assistant') {
       const toolCalls = (m.toolCalls as any[] | null) ?? undefined;
       return { role: 'assistant', content: m.content || null, tool_calls: toolCalls?.length ? toolCalls : undefined };
@@ -244,6 +244,21 @@ function toChatMessages(history: Message[], latestId: string): ChatMessage[] {
     }
     return { role: 'user', content: m.imageDataUrl ? `${m.content}\n[photo attached]` : m.content };
   });
+}
+
+// A tool reply from an earlier turn keeps the facts but not the full report.
+// Reports are long (several times longer outside English) and would otherwise
+// be sent again with every later message; the model can open the reading if
+// it needs the wording.
+function compactToolResult(content: string) {
+  try {
+    const result = JSON.parse(content);
+    if (!result || typeof result.report !== 'string') return content;
+    const { report: _report, note: _note, ...rest } = result;
+    return JSON.stringify({ ...rest, note: 'Report already shared with the user. Call open_reading with this readingId if you need its details.' });
+  } catch {
+    return content;
+  }
 }
 
 // Drops leading messages that would leave a tool reply without its call.
@@ -290,13 +305,18 @@ const TOOL_STATUS: Record<string, string> = {
   open_reading: 'Opening your saved reading…',
 };
 
-export async function sendMessage(
+export function sendMessage(
   userId: string,
   conversationId: string,
   content: string,
   imageDataUrl?: string | null,
   emit: (event: ChatEvent) => void = () => undefined,
 ) {
+  // Every AI call in this reply, reports included, is recorded against the conversation.
+  return trackUsage({ conversationId }, () => answer(userId, conversationId, content, imageDataUrl, emit));
+}
+
+async function answer(userId: string, conversationId: string, content: string, imageDataUrl: string | null | undefined, emit: (event: ChatEvent) => void) {
   const conversation = await prisma.conversation.findFirst({ where: { id: conversationId, userId } });
   if (!conversation) throw userError('Conversation not found.');
   if (!content.trim() && !imageDataUrl) throw userError('Please type a message.');
@@ -326,7 +346,12 @@ export async function sendMessage(
     for (let step = 0; step < MAX_STEPS; step++) {
       // On the last step tools are withheld so the model has to answer.
       const tools = step < MAX_STEPS - 1 ? TOOLS : undefined;
-      const reply = await complete({ task: 'chat', userId, messages, tools, maxTokens: 1500, onToken: (text) => emit({ type: 'token', text }) });
+      // Indian scripts take several times more tokens than English, and the
+      // model's thinking comes out of the same budget, so there is room for
+      // a full answer in any language. Light thinking is enough for a chat.
+      const reply = await complete({ task: 'chat', userId, messages, tools, maxTokens: 4000, reasoning: 'low', onToken: (text) => emit({ type: 'token', text }) });
+      // Never leave the person with a blank reply.
+      if (!reply.content.trim() && !reply.toolCalls.length) reply.content = tr("I'm sorry, I couldn't respond just now.");
       await record({
         conversationId,
         role: 'assistant',

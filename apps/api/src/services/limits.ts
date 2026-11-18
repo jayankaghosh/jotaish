@@ -1,4 +1,4 @@
-import type { User } from '@prisma/client';
+import type { AiUsage, User } from '@prisma/client';
 import { GraphQLError } from 'graphql';
 import { prisma } from '../lib/db';
 import { currentLang, tr } from '../i18n';
@@ -122,20 +122,31 @@ export async function assertCanInteract(user: User) {
 }
 
 // Called after each AI call is recorded: whatever part of it went beyond the
-// free allowance is taken from the user's bought credits.
-export async function chargeOverflow(userId: string, costUsd: number) {
+// free allowance is taken from the user's bought credits. Only calls recorded
+// before this one count as already spent, so calls that finish at the same
+// moment (a Kundli's parts) don't each charge for the others.
+export async function chargeOverflow(userId: string, call: Pick<AiUsage, 'id' | 'cost' | 'createdAt'>) {
+  const costUsd = call.cost ?? 0;
   if (costUsd <= 0) return;
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || user.creditBalance <= 0) return;
   const usage = await usageFor(user);
   if (usage.limit === null) return;
-  const callCredits = costUsd / CREDIT_USD;
-  const usedAfter = usage.spentUsd / CREDIT_USD;
-  const usedBefore = usedAfter - callCredits;
-  const overflow = usedAfter - Math.max(usage.limit, usedBefore);
+  const { start } = periodWindow((await getLimitSettings()).period);
+  const before = await prisma.aiUsage.aggregate({
+    _sum: { cost: true },
+    where: {
+      userId,
+      ...(start ? { createdAt: { gte: start } } : {}),
+      OR: [{ createdAt: { lt: call.createdAt } }, { createdAt: call.createdAt, id: { lt: call.id } }],
+    },
+  });
+  const usedBefore = (before._sum.cost ?? 0) / CREDIT_USD;
+  const overflow = usedBefore + costUsd / CREDIT_USD - Math.max(usage.limit, usedBefore);
   if (overflow <= 0) return;
-  const balance = Math.max(0, user.creditBalance - overflow);
-  await prisma.user.update({ where: { id: userId }, data: { creditBalance: balance } });
+  // Decrement in the database so two calls can't overwrite each other.
+  const updated = await prisma.user.update({ where: { id: userId }, data: { creditBalance: { decrement: overflow } } });
+  if (updated.creditBalance < 0) await prisma.user.update({ where: { id: userId }, data: { creditBalance: 0 } });
   // Tell the admins once, at the moment the last credit goes.
-  if (balance < 1 && user.creditBalance >= 1) emailCreditsExhausted(user);
+  if (updated.creditBalance < 1 && updated.creditBalance + overflow >= 1) emailCreditsExhausted(user);
 }

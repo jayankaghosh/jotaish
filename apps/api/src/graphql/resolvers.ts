@@ -8,6 +8,7 @@ import { searchPlaces } from '../astro/geo';
 import { saveProfile, type ProfileInput } from '../services/profiles';
 import * as readings from '../services/readings';
 import { CREDIT_USD, assertCanInteract, getLimitSettings, setLimitSettings, usageFor } from '../services/limits';
+import { creditActivity } from '../services/activity';
 import { getPaymentSettings, grantCredits, quote, reviewPayment, setPaymentSettings, submitPayment } from '../services/payments';
 import { disconnectGmail, getMailSettings, isConfigured, saveGmailConnection, sendTestMail, setMailSettings, type MailSettings } from '../services/mail';
 import { authUrl, checkState, exchangeCode, makeState } from '../services/gmail';
@@ -146,6 +147,7 @@ export const resolvers = {
     user: (p: { userId: string }, _: unknown, ctx: Context) => (ctx.user?.role === 'ADMIN' ? prisma.user.findUnique({ where: { id: p.userId } }) : null),
   },
   EmailLogEntry: { createdAt: iso('createdAt') },
+  CreditActivityItem: { startedAt: iso('startedAt'), endedAt: iso('endedAt') },
   CreditGrant: {
     createdAt: iso('createdAt'),
     grantedBy: async (g: { grantedById: string | null }) =>
@@ -287,6 +289,10 @@ export const resolvers = {
     adminUserGrants: (_: unknown, { userId }: { userId: string }, ctx: Context) => {
       requireAdmin(ctx);
       return prisma.creditGrant.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 50 });
+    },
+    adminUserActivity: (_: unknown, { userId, days }: { userId: string; days?: number }, ctx: Context) => {
+      requireAdmin(ctx);
+      return creditActivity(userId, Math.min(90, Math.max(1, Math.round(days ?? 30))));
     },
     adminEmailLog: (_: unknown, { kind, take }: { kind?: string; take?: number }, ctx: Context) => {
       requireAdmin(ctx);

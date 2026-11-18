@@ -1,7 +1,7 @@
 import type { BirthProfile, Prisma, ReadingType } from '@prisma/client';
 import { prisma } from '../lib/db';
 import { userError } from '../lib/auth';
-import { complete, type ChatMessage, type ContentPart } from '../ai/openrouter';
+import { complete, trackUsage, type ChatMessage, type ContentPart } from '../ai/openrouter';
 import { REPORT_PROMPTS, languageInstruction, regionInstruction, toRegion, type Region } from '../ai/prompts';
 import { currentLang, tr } from '../i18n';
 import { computeBirthChart, currentTransits, SIGNS } from '../astro/vedic';
@@ -67,6 +67,7 @@ async function save(
       generationMs: report.ms,
     },
   });
+  if (report.usageIds.length) await prisma.aiUsage.updateMany({ where: { id: { in: report.usageIds } }, data: { readingId: reading.id } });
   emailReading(reading.id);
   return reading;
 }
@@ -98,9 +99,15 @@ interface Report {
   model: string;
   content: string;
   ms: number;
+  // The AI calls that wrote it.
+  usageIds: string[];
 }
 
 async function writeReport(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image?: string, region?: Region): Promise<Report> {
+  return trackUsage({}, async (usageIds) => ({ ...(await writeParts(task, userId, payload, image, region)), usageIds }));
+}
+
+async function writeParts(task: keyof typeof REPORT_PROMPTS, userId: string, payload: unknown, image?: string, region?: Region) {
   const started = Date.now();
   const system = REPORT_PROMPTS[task] + (region ? regionInstruction(region) : '') + languageInstruction(currentLang());
   const parts = REPORT_PARTS[task];

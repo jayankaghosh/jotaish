@@ -144,10 +144,14 @@ model AiUsage {
   cost             Float?
   latencyMs        Int
   error            String?
+  // What the call was for, so admins can see where a user's credits went.
+  language         String?
+  conversationId   String?
+  readingId        String?
   createdAt        DateTime @default(now())
 
   @@index([createdAt])
-  @@index([userId])
+  @@index([userId, createdAt])
 }
 
 // A customer's claim that they paid by UPI, with the screenshot as proof.

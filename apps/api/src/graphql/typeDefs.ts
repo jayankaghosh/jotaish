@@ -297,6 +297,61 @@ export const typeDefs = /* GraphQL */ `
     createdAt: String!
   }
 
+  # Where a user's credits went, grouped into what they did.
+  type CreditActivity {
+    days: Int!
+    # True when there were more calls than could be shown.
+    truncated: Boolean!
+    calls: Int!
+    promptTokens: Int!
+    completionTokens: Int!
+    credits: Float!
+    failed: Int!
+    byTask: [TaskCredits!]!
+    byLanguage: [LanguageCredits!]!
+    items: [CreditActivityItem!]!
+  }
+
+  type TaskCredits {
+    task: String!
+    label: String!
+    calls: Int!
+    promptTokens: Int!
+    completionTokens: Int!
+    credits: Float!
+    failed: Int!
+  }
+
+  type LanguageCredits {
+    # Null for calls made before languages were recorded.
+    language: String
+    calls: Int!
+    promptTokens: Int!
+    completionTokens: Int!
+    credits: Float!
+    failed: Int!
+  }
+
+  type CreditActivityItem {
+    id: ID!
+    # reading, chat or other
+    kind: String!
+    title: String!
+    readingId: ID
+    readingType: ReadingType
+    conversationId: ID
+    tasks: [String!]!
+    language: String
+    models: [String!]!
+    startedAt: String!
+    endedAt: String!
+    calls: Int!
+    promptTokens: Int!
+    completionTokens: Int!
+    credits: Float!
+    failed: Int!
+  }
+
   type AdminStats {
     users: Int!
     newUsersThisWeek: Int!
@@ -466,6 +521,8 @@ export const typeDefs = /* GraphQL */ `
     adminPendingPayments: Int!
     adminUserPayments(userId: ID!): [PaymentRequest!]!
     adminUserGrants(userId: ID!): [CreditGrant!]!
+    # The last 1 to 90 days, 30 by default.
+    adminUserActivity(userId: ID!, days: Int): CreditActivity!
     adminEmailLog(kind: String, take: Int): [EmailLogEntry!]!
     openRouterModels: [CatalogModel!]!
   }

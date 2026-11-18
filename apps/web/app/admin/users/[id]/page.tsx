@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { use, useCallback, useEffect, useState } from 'react';
 import { AdminShell } from '@/components/AdminShell';
+import { CreditActivity } from '@/components/CreditActivity';
 import { PaymentCard } from '@/components/PaymentCard';
 import { BackLink, ErrorNote, Spinner, formatDate } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -89,6 +90,8 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
           <LimitCard user={user} onChange={(u) => setUser((prev) => (prev ? { ...prev, ...u } : prev))} />
 
           <CreditsCard user={user} onChange={(u) => setUser((prev) => (prev ? { ...prev, ...u } : prev))} />
+
+          <CreditActivity userId={user.id} />
 
           <div className="mb-6 flex gap-2">
             {([['readings', `Readings (${readings.length})`], ['conversations', `Conversations (${conversations.length})`], ['profiles', `Birth details (${user.profiles.length})`]] as [Tab, string][]).map(([k, l]) => (
