@@ -218,5 +218,15 @@
   "exalted": "उच्च",
   "debilitated": "नीच",
   "own sign": "स्वराशि",
-  "Please write the name in English letters, as numerology counts the letters A to Z.": "कृपया नाम अंग्रेज़ी अक्षरों में लिखें, क्योंकि अंक ज्योतिष A से Z तक के अक्षर गिनता है।"
+  "Please write the name in English letters, as numerology counts the letters A to Z.": "कृपया नाम अंग्रेज़ी अक्षरों में लिखें, क्योंकि अंक ज्योतिष A से Z तक के अक्षर गिनता है।",
+  "Enter this code in Jotaish to sign in:": "साइन इन करने के लिए Jotaish में यह कोड डालें:",
+  "Namaste,": "नमस्ते,",
+  "That code has expired. Tap \"Send a new code\" to get a fresh one.": "यह कोड समाप्त हो गया है। नया कोड पाने के लिए \"नया कोड भेजें\" पर टैप करें।",
+  "That code is not correct. Please use the latest code we emailed you.": "यह कोड सही नहीं है। कृपया हमारे भेजे गए सबसे नए कोड का उपयोग करें।",
+  "That code is not correct. Attempts left: {left}.": "यह कोड सही नहीं है। बचे हुए प्रयास: {left}।",
+  "The code works for {minutes} minutes. If you didn't ask to sign in, you can ignore this email; nobody can get in without the code.": "यह कोड {minutes} मिनट तक काम करेगा। अगर आपने साइन इन करने को नहीं कहा था, तो इस ईमेल को अनदेखा करें; कोड के बिना कोई अंदर नहीं आ सकता।",
+  "We couldn't send the email just now. Please check the address and try again in a minute.": "हम अभी ईमेल नहीं भेज पाए। कृपया पता जाँचें और एक मिनट बाद फिर कोशिश करें।",
+  "You've asked for a lot of codes. Please try again in {minutes} min, or use the latest code we sent.": "आपने बहुत सारे कोड माँगे हैं। कृपया {minutes} मिनट बाद फिर कोशिश करें, या हमारे भेजे गए सबसे नए कोड का उपयोग करें।",
+  "Your sign-in code": "आपका साइन-इन कोड",
+  "{code} is your Jotaish sign-in code": "{code} आपका Jotaish साइन-इन कोड है"
 }

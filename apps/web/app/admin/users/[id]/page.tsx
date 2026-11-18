@@ -55,20 +55,15 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
         <>
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="font-display text-4xl text-ink">{user.name}</h1>
+              <h1 className="font-display text-4xl text-ink">{user.name || <span className="text-muted">Name not given yet</span>}</h1>
               <p className="text-muted">
                 {user.email}{' '}
-                {user.role !== 'ADMIN' && (user.emailVerified ? <span className="chip border-ok/40 text-ok">Email confirmed</span> : <span className="chip border-gold/40 text-gold-soft">Email not confirmed</span>)}
+                {user.role !== 'ADMIN' && (user.emailVerified ? <span className="chip border-ok/40 text-ok">Email confirmed</span> : <span className="chip border-gold/40 text-gold-soft">Hasn't signed in with a code yet</span>)}
               </p>
               <p className="text-muted">Joined {formatDate(user.createdAt)} · last seen {user.lastSeenAt ? formatDate(user.lastSeenAt, true) : 'never'}</p>
             </div>
             {me?.id !== user.id && (
               <div className="flex gap-2">
-                {!user.emailVerified && user.role !== 'ADMIN' && (
-                  <button className="btn-ghost" onClick={() => update(`mutation($id: ID!) { markEmailVerified(userId: $id) { emailVerified needsVerification } }`, { id })}>
-                    Mark email confirmed
-                  </button>
-                )}
                 <button className="btn-ghost" onClick={() => update(`mutation($id: ID!, $role: Role!) { setUserRole(userId: $id, role: $role) { role } }`, { id, role: user.role === 'ADMIN' ? 'USER' : 'ADMIN' })}>
                   {user.role === 'ADMIN' ? 'Remove admin' : 'Make admin'}
                 </button>

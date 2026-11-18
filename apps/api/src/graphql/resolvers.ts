@@ -13,7 +13,7 @@ import { disconnectGmail, getMailSettings, isConfigured, saveGmailConnection, se
 import { authUrl, checkState, exchangeCode, makeState } from '../services/gmail';
 import { campaignEmail } from '../services/notifications';
 import { isLang, toLang } from '../i18n';
-import { confirmCode, forgetVerificationSetting, needsVerification, notVerifiedError, sendCode } from '../services/verification';
+import { checkCode, getSignInSettings, requestCode, setSignInSettings } from '../services/signin';
 import { greeting, sendMessage, streamMessage, type ChatEvent } from '../ai/agent';
 import { AiError, complete, listOpenRouterModels } from '../ai/openrouter';
 import {
@@ -64,13 +64,14 @@ function mailView(mail: MailSettings) {
 }
 
 async function adminSettings() {
-  const [models, stored, temperature, limits, payment, mail] = await Promise.all([
+  const [models, stored, temperature, limits, payment, mail, signIn] = await Promise.all([
     getModels(),
     prisma.setting.findUnique({ where: { key: 'openrouter_api_key' } }),
     getTemperature(),
     getLimitSettings(),
     getPaymentSettings(),
     getMailSettings(),
+    getSignInSettings(),
   ]);
   const key = await getApiKey();
   return {
@@ -83,6 +84,7 @@ async function adminSettings() {
     creditUsd: CREDIT_USD,
     payment,
     mail: mailView(mail),
+    signIn,
     tasks: (Object.keys(AI_TASKS) as AiTask[]).map((task) => ({ task, ...AI_TASKS[task], needs: [...AI_TASKS[task].needs], model: models[task] })),
     recommendedModels: RECOMMENDED_MODELS,
   };
@@ -135,7 +137,6 @@ export const resolvers = {
     readingCount: (u: { id: string }) => prisma.reading.count({ where: { userId: u.id } }),
     conversationCount: (u: { id: string }) => prisma.conversation.count({ where: { userId: u.id } }),
     emailVerified: (u: User) => Boolean(u.emailVerifiedAt),
-    needsVerification: (u: User) => needsVerification(u),
     usage: (u: User, _: unknown, ctx: Context) => (ctx.user && (ctx.user.id === u.id || ctx.user.role === 'ADMIN') ? usageFor(u) : null),
   },
   Usage: { resetsAt: iso('resetsAt') },
@@ -310,44 +311,28 @@ export const resolvers = {
   },
 
   Mutation: {
-    register: async (_: unknown, { input }: { input: { name: string; email: string; password: string; language?: string } }, ctx: Context) => {
-      const email = input.email.trim().toLowerCase();
-      if (!input.name.trim()) throw userError('Please tell us your name.');
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw userError('Please enter a valid email address.');
-      if (input.password.length < 8) throw userError('Please choose a password with at least 8 characters.');
-      if (await prisma.user.findUnique({ where: { email } })) throw userError('An account with this email already exists. Try signing in instead.');
-      const user = await prisma.user.create({
-        data: { email, name: input.name.trim(), passwordHash: await bcrypt.hash(input.password, 10), lastSeenAt: new Date(), language: toLang(input.language ?? ctx.lang) },
+    requestSignInCode: (_: unknown, { email }: { email: string }) => requestCode(email),
+    verifySignInCode: async (_: unknown, { email, code, language }: { email: string; code: string; language?: string }, ctx: Context) => {
+      const address = await checkCode(email, code);
+      const now = new Date();
+      // First sign-in creates the account; the name is asked for next.
+      const user = await prisma.user.upsert({
+        where: { email: address },
+        create: { email: address, name: '', language: toLang(language ?? ctx.lang), emailVerifiedAt: now, lastSeenAt: now },
+        update: { lastSeenAt: now },
       });
-      if (await needsVerification(user)) {
-        await sendCode(user);
-        return { token: null, user, verificationRequired: true };
-      }
-      return { token: signToken(user.id), user, verificationRequired: false };
+      if (user.disabled) throw userError('This account has been blocked. If you think this is a mistake, please contact us.');
+      if (!user.emailVerifiedAt) await prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: now } });
+      return { token: signToken(user.id), user, isNew: !user.name };
     },
     login: async (_: unknown, { email, password }: { email: string; password: string }) => {
       const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
-      if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw userError('That email and password do not match. Please try again.');
-      if (user.disabled) throw userError('This account has been blocked. If you think this is a mistake, please contact us.');
-      // Only confirmed emails can sign in; a fresh code goes out each time.
-      if (await needsVerification(user)) {
-        await sendCode(user);
-        throw notVerifiedError(user.email);
+      if (!user?.passwordHash || user.role !== 'ADMIN' || !(await bcrypt.compare(password, user.passwordHash))) {
+        throw userError('That email and password do not match. Please try again.');
       }
-      await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
-      return { token: signToken(user.id), user, verificationRequired: false };
-    },
-    verifyEmail: async (_: unknown, { email, code }: { email: string; code: string }) => {
-      const user = await confirmCode(email, code);
       if (user.disabled) throw userError('This account has been blocked. If you think this is a mistake, please contact us.');
       await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
-      return { token: signToken(user.id), user, verificationRequired: false };
-    },
-    resendVerificationCode: async (_: unknown, { email }: { email: string }) => {
-      const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
-      // Same answer whether or not the account exists.
-      if (user && !user.disabled && (await needsVerification(user))) await sendCode(user);
-      return true;
+      return { token: signToken(user.id), user, isNew: false };
     },
     updateMe: (_: unknown, { name, language }: { name?: string; language?: string }, ctx: Context) => {
       // Language can be changed even before the email is confirmed, so the
@@ -360,7 +345,7 @@ export const resolvers = {
     },
     changePassword: async (_: unknown, { current, next }: { current: string; next: string }, ctx: Context) => {
       const user = requireUser(ctx);
-      if (!(await bcrypt.compare(current, user.passwordHash))) throw userError('Your current password is not correct.');
+      if (!user.passwordHash || !(await bcrypt.compare(current, user.passwordHash))) throw userError('Your current password is not correct.');
       if (next.length < 8) throw userError('Please choose a password with at least 8 characters.');
       await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(next, 10) } });
       return true;
@@ -414,10 +399,8 @@ export const resolvers = {
       if (typeof input.temperature === 'number') await setTemperature(input.temperature);
       if (input.limits) await setLimitSettings(input.limits);
       if (input.payment) await setPaymentSettings(input.payment);
-      if (input.mail) {
-        await setMailSettings(input.mail);
-        forgetVerificationSetting();
-      }
+      if (input.mail) await setMailSettings(input.mail);
+      if (input.signIn) await setSignInSettings(input.signIn);
       if (input.models?.length) {
         const valid = input.models.filter((m: { task: string; model: string }) => m.task in AI_TASKS && m.model.trim());
         await setModels(Object.fromEntries(valid.map((m: { task: string; model: string }) => [m.task, m.model.trim()])));
@@ -486,13 +469,11 @@ export const resolvers = {
       } catch (e) {
         throw userError(`Could not connect Gmail: ${(e as Error).message}`);
       }
-      forgetVerificationSetting();
       return mailView(await getMailSettings());
     },
     disconnectGmail: async (_: unknown, __: unknown, ctx: Context) => {
       requireAdmin(ctx);
       await disconnectGmail();
-      forgetVerificationSetting();
       return mailView(await getMailSettings());
     },
     sendEmailToUsers: async (_: unknown, args: { userIds?: string[]; everyone?: boolean; subject: string; body: string }, ctx: Context) => {
@@ -512,10 +493,6 @@ export const resolvers = {
         }
       })();
       return users.length;
-    },
-    markEmailVerified: (_: unknown, { userId }: { userId: string }, ctx: Context) => {
-      requireAdmin(ctx);
-      return prisma.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date(), verifyCodeHash: null } });
     },
     setUserLimit: async (_: unknown, { userId, mode, limit }: { userId: string; mode: string; limit?: number | null }, ctx: Context) => {
       requireAdmin(ctx);

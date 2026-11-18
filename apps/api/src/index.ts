@@ -3,7 +3,6 @@ import { createSchema, createYoga, type Plugin } from 'graphql-yoga';
 import { env } from './lib/env';
 import { userFromHeader, type Context } from './lib/auth';
 import { typeDefs } from './graphql/typeDefs';
-import { needsVerification } from './services/verification';
 import { resolvers } from './graphql/resolvers';
 import { isLang, withLang } from './i18n';
 
@@ -29,7 +28,7 @@ const yoga = createYoga<{}, Context>({
     // The language the person is looking at, falling back to their saved one.
     const header = request.headers.get('x-lang');
     const lang = isLang(header) ? header : isLang(user?.language) ? user.language : 'en';
-    return { user, lang, unverified: user ? await needsVerification(user) : false };
+    return { user, lang };
   },
   plugins: [languagePlugin],
   // Show user-facing messages; Yoga hides unexpected errors by default.

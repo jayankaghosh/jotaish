@@ -20,7 +20,7 @@ Astrology and divination are traditions of reflection and interpretation, not sc
 ## 3. Your account
 
 - You must be at least 18 years old to use Jotaish.
-- Give accurate information, keep your password private, and tell us if you think someone else has used your account.
+- Give accurate information, keep your email account and sign-in codes private, and tell us if you think someone else has used your account.
 - You may need to confirm your email address before you can sign in.
 - You are responsible for what happens under your account.
 
@@ -75,5 +75,5 @@ Website: https://www.jotaish.online
 `;
 
 export default function TermsPage() {
-  return <LegalPage title="Terms of service" updated="17 November 2026" body={BODY} />;
+  return <LegalPage title="Terms of service" updated="18 November 2026" body={BODY} />;
 }

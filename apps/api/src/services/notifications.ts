@@ -144,20 +144,20 @@ ${button('Open their profile', siteUrl(`/admin/users/${user.id}`))}`,
   );
 }
 
-export function verificationEmail(user: Pick<User, 'id' | 'name' | 'email' | 'language'>, code: string) {
-  const lang = toLang(user.language);
+export function signInCodeEmail(to: { email: string; userId?: string; name: string; language: string }, code: string, minutes: number) {
+  const lang = toLang(to.language);
   const t = (text: string, vars?: Record<string, string | number>) => tr(text, vars, lang);
   return sendMail({
-    to: user.email,
-    userId: user.id,
-    kind: 'verification',
-    subject: t('{code} is your Jotaish verification code', { code }),
+    to: to.email,
+    userId: to.userId,
+    kind: 'sign_in_code',
+    subject: t('{code} is your Jotaish sign-in code', { code }),
     html: layout(
-      t('Confirm your email'),
-      para(t('Namaste {name},', { name: first(user.name) })) +
-        para(t('Please enter this code in Jotaish to confirm your email address:')) +
+      t('Your sign-in code'),
+      para(to.name ? t('Namaste {name},', { name: first(to.name) }) : t('Namaste,')) +
+        para(t('Enter this code in Jotaish to sign in:')) +
         `<p style="font-size:34px;letter-spacing:10px;font-weight:bold;color:#0c0a1c;margin:24px 0">${code}</p>` +
-        para(t("The code works for 30 minutes. If you didn't create a Jotaish account, you can ignore this email.")),
+        para(t("The code works for {minutes} minutes. If you didn't ask to sign in, you can ignore this email; nobody can get in without the code.", { minutes })),
       lang,
     ),
   });

@@ -101,7 +101,7 @@ export default function ProfilePage() {
 
         <div className="space-y-6">
           <AccountCard />
-          <PasswordCard />
+          {user.role === 'ADMIN' && <PasswordCard />}
           <InstallButton className="btn-primary w-full" />
           <button
             className="btn-ghost w-full"

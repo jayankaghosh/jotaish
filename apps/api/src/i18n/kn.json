@@ -218,5 +218,15 @@
   "exalted": "ಉಚ್ಚ",
   "debilitated": "ನೀಚ",
   "own sign": "ಸ್ವಕ್ಷೇತ್ರ",
-  "Please write the name in English letters, as numerology counts the letters A to Z.": "ದಯವಿಟ್ಟು ಹೆಸರನ್ನು ಇಂಗ್ಲಿಷ್ ಅಕ್ಷರಗಳಲ್ಲಿ ಬರೆಯಿರಿ, ಏಕೆಂದರೆ ಸಂಖ್ಯಾಶಾಸ್ತ್ರ A ಇಂದ Z ವರೆಗಿನ ಅಕ್ಷರಗಳನ್ನು ಎಣಿಸುತ್ತದೆ."
+  "Please write the name in English letters, as numerology counts the letters A to Z.": "ದಯವಿಟ್ಟು ಹೆಸರನ್ನು ಇಂಗ್ಲಿಷ್ ಅಕ್ಷರಗಳಲ್ಲಿ ಬರೆಯಿರಿ, ಏಕೆಂದರೆ ಸಂಖ್ಯಾಶಾಸ್ತ್ರ A ಇಂದ Z ವರೆಗಿನ ಅಕ್ಷರಗಳನ್ನು ಎಣಿಸುತ್ತದೆ.",
+  "Enter this code in Jotaish to sign in:": "ಸೈನ್ ಇನ್ ಮಾಡಲು ಈ ಕೋಡ್ ಅನ್ನು Jotaish ನಲ್ಲಿ ನಮೂದಿಸಿ:",
+  "Namaste,": "ನಮಸ್ತೆ,",
+  "That code has expired. Tap \"Send a new code\" to get a fresh one.": "ಈ ಕೋಡ್‌ನ ಅವಧಿ ಮುಗಿದಿದೆ. ಹೊಸ ಕೋಡ್ ಪಡೆಯಲು \"ಹೊಸ ಕೋಡ್ ಕಳುಹಿಸಿ\" ಟ್ಯಾಪ್ ಮಾಡಿ.",
+  "That code is not correct. Please use the latest code we emailed you.": "ಈ ಕೋಡ್ ಸರಿಯಿಲ್ಲ. ದಯವಿಟ್ಟು ನಾವು ಕಳುಹಿಸಿದ ಇತ್ತೀಚಿನ ಕೋಡ್ ಬಳಸಿ.",
+  "That code is not correct. Attempts left: {left}.": "ಈ ಕೋಡ್ ಸರಿಯಿಲ್ಲ. ಉಳಿದಿರುವ ಪ್ರಯತ್ನಗಳು: {left}.",
+  "The code works for {minutes} minutes. If you didn't ask to sign in, you can ignore this email; nobody can get in without the code.": "ಈ ಕೋಡ್ {minutes} ನಿಮಿಷ ಕೆಲಸ ಮಾಡುತ್ತದೆ. ನೀವು ಸೈನ್ ಇನ್ ಮಾಡಲು ಕೇಳದಿದ್ದರೆ ಈ ಇಮೇಲ್ ಅನ್ನು ನಿರ್ಲಕ್ಷಿಸಿ; ಕೋಡ್ ಇಲ್ಲದೆ ಯಾರೂ ಒಳಬರಲು ಸಾಧ್ಯವಿಲ್ಲ.",
+  "We couldn't send the email just now. Please check the address and try again in a minute.": "ಈಗ ಇಮೇಲ್ ಕಳುಹಿಸಲು ಆಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ವಿಳಾಸ ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಒಂದು ನಿಮಿಷದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "You've asked for a lot of codes. Please try again in {minutes} min, or use the latest code we sent.": "ನೀವು ಹಲವು ಕೋಡ್‌ಗಳನ್ನು ಕೇಳಿದ್ದೀರಿ. ದಯವಿಟ್ಟು {minutes} ನಿಮಿಷದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ, ಅಥವಾ ನಾವು ಕಳುಹಿಸಿದ ಇತ್ತೀಚಿನ ಕೋಡ್ ಬಳಸಿ.",
+  "Your sign-in code": "ನಿಮ್ಮ ಸೈನ್-ಇನ್ ಕೋಡ್",
+  "{code} is your Jotaish sign-in code": "{code} ನಿಮ್ಮ Jotaish ಸೈನ್-ಇನ್ ಕೋಡ್"
 }

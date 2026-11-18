@@ -24,7 +24,6 @@ export interface MailSettings {
   // Where admin notifications go, comma separated.
   adminEmails: string;
   // Customers must confirm their email before signing in.
-  requireVerification: boolean;
   gmailClientId: string;
   gmailClientSecret: string;
   gmailRefreshToken: string;
@@ -45,7 +44,6 @@ const DEFAULTS: MailSettings = {
   fromName: 'Jotaish',
   fromEmail: '',
   adminEmails: '',
-  requireVerification: true,
   gmailClientId: '',
   gmailClientSecret: '',
   gmailRefreshToken: '',
@@ -83,7 +81,6 @@ export async function setMailSettings(input: Partial<MailSettings> & { clearPass
   }
   if (typeof input.port === 'number') next.port = input.port;
   if (typeof input.secure === 'boolean') next.secure = input.secure;
-  if (typeof input.requireVerification === 'boolean') next.requireVerification = input.requireVerification;
   // Gmail shows app passwords in groups of four; the spaces aren't part of it.
   if (input.clearPassword) next.password = '';
   else if (input.password?.trim()) next.password = input.password.replace(/\s+/g, '');
@@ -118,11 +115,6 @@ export function isConfigured(s: MailSettings) {
 
 // Verification only applies once email can actually be delivered, so nobody
 // is locked out by a half-finished setup.
-export async function verificationRequired() {
-  const s = await getMailSettings();
-  return s.requireVerification && isConfigured(s);
-}
-
 function transport(s: MailSettings) {
   return nodemailer.createTransport({
     host: s.host,

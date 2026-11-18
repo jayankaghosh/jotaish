@@ -13,7 +13,7 @@ Jotaish ("we", "us") offers astrology and related readings at **jotaish.online**
 
 **Information you give us**
 
-- **Account details:** your name, email address and password. Passwords are stored only in a scrambled (hashed) form that we cannot read.
+- **Account details:** your name and email address. You sign in with a one-time code we email you; we keep only a scrambled (hashed) form of each code, and it stops working after a few minutes.
 - **Birth details:** the name, date, time and place of birth you enter for yourself and for anyone else you add, such as a partner or family member. Please add other people's details only with their permission.
 - **What you ask for:** your messages to our astrologer, tarot questions, dream descriptions and the photos of your palm you upload.
 - **Payments:** the amount and number of credits you request, and the screenshot of your UPI payment that you upload. We do not receive or store your bank account, card or UPI PIN details; the payment itself happens in your own UPI app.
@@ -37,7 +37,7 @@ We do **not** sell your personal information, and we do not use it for advertisi
 
 ## How readings are prepared
 
-Our astrologer, Jotaish, is an automated assistant. Planetary positions, cards and numbers are calculated by our own software. The written interpretation is produced by language models that we access through **OpenRouter**, which passes the request to the model provider we have chosen (for example Anthropic, OpenAI or Google). To prepare a reading, we send them the information that reading needs: for example your birth details and chart, your question, a dream description, or a palm photo. We do not send your password, and we only send your email address where it is part of what you wrote. These providers process the information to return the reading under their own terms and privacy policies.
+Our astrologer, Jotaish, is an automated assistant. Planetary positions, cards and numbers are calculated by our own software. The written interpretation is produced by language models that we access through **OpenRouter**, which passes the request to the model provider we have chosen (for example Anthropic, OpenAI or Google). To prepare a reading, we send them the information that reading needs: for example your birth details and chart, your question, a dream description, or a palm photo. We only send your email address where it is part of what you wrote. These providers process the information to return the reading under their own terms and privacy policies.
 
 ## Who can see your information
 
@@ -67,7 +67,7 @@ If you are in India, you have rights under the Digital Personal Data Protection 
 
 ## Security
 
-We use encrypted connections (HTTPS), store passwords in hashed form, keep sensitive settings encrypted, and limit admin access to our team. No system is perfectly secure, so please use a strong password and keep it to yourself.
+We use encrypted connections (HTTPS), store sign-in codes only in hashed form and let each one work just once for a few minutes, keep sensitive settings encrypted, and limit admin access to our team. No system is perfectly secure, so please keep access to your email account safe and never share a sign-in code.
 
 ## Children
 
@@ -85,5 +85,5 @@ Website: https://www.jotaish.online
 `;
 
 export default function PrivacyPage() {
-  return <LegalPage title="Privacy policy" updated="17 November 2026" body={BODY} />;
+  return <LegalPage title="Privacy policy" updated="18 November 2026" body={BODY} />;
 }

@@ -96,11 +96,10 @@ The console lives at `/admin` with its own sign-in page and header. Nothing in t
 - **Selling credits**: in Settings, set a UPI ID, upload the QR code and fill the price table (₹ to credits). Customers buy on the Credits page in three steps: choose an amount (only whole multiples of a row, with the nearest valid amounts suggested), pay by UPI, then upload a screenshot. Bought credits are used after the free allowance and never expire.
 - **Payments**: every screenshot waits in the Payments tab (with a count in the header). Approve to add the credits (the requested number or a different one), or reject with a reason. Customers see each screenshot they sent with its outcome: credits added, or the rejection reason. Each user's page also lets you give or remove credits by hand, with every change kept in a history.
 - **Email**: in Settings, either connect a Gmail account through the Gmail API (sign in with Google; works over HTTPS, so it also works on hosts like DigitalOcean that block email ports) or enter SMTP details for any mail service, then send a test. Once set up, customers get every new reading as a PDF attachment and updates on their payments; admins get an alert for each new payment and when a customer's bought credits run out. The Emails page sends your own message to chosen users or everyone (`{name}` becomes their first name) and keeps a log of every email.
-- **Email confirmation**: while email is set up, new customers confirm their address with a 6-digit code before they can sign in, and existing customers are asked once by a pop-up. Admins are never asked, and an admin can mark an address as confirmed from the user's page.
+- **Sign-in codes**: customers have no password. They enter their email, get a 6-digit code, and enter it; a new address gets an account at that moment and is asked for a name. By default a code works for 5 minutes, a new one can be sent after 30 seconds, an address can ask for 5 codes an hour, and a code allows 5 wrong tries; all of these are in Settings. Email has to be set up for customers to sign in (in local development without email, the code is printed in the API log). Admins sign in to the console with their password.
 - **Settings**: OpenRouter key (encrypted with AES-256-GCM using `APP_SECRET`), a model per task with live pricing from the OpenRouter catalogue, and a temperature control.
 
 ## Not built yet
 
 - Paywall and payments (the app is free to use for now).
 - Ashtakoota guna milan score for matching (matching compares the two charts directly).
-- Password reset by email.

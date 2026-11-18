@@ -26,7 +26,6 @@ export interface User {
   conversationCount: number;
   language?: string;
   emailVerified?: boolean;
-  needsVerification?: boolean;
   creditLimit?: number | null;
   unlimitedCredits?: boolean;
   usage?: Usage | null;

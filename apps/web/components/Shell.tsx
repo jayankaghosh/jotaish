@@ -12,7 +12,6 @@ import { OfflineBanner } from './Pwa';
 import { Logo } from './Logo';
 import { Spinner } from './ui';
 import { formatCredits } from './UsageNote';
-import { VerifyCode } from './VerifyCode';
 
 const TABS: { href: string; label: MessageKey; icon: typeof Sun; centre?: boolean }[] = [
   { href: '/dashboard', label: 'nav.today', icon: Sun },
@@ -34,7 +33,7 @@ interface ShellProps {
 }
 
 export function Shell({ children, wide = false, immersive = false }: ShellProps) {
-  const { user, loading, signOut, aiReady, signIn } = useAuth();
+  const { user, loading, signOut, aiReady } = useAuth();
   const t = useT();
   const router = useRouter();
   const pathname = usePathname();
@@ -42,9 +41,11 @@ export function Shell({ children, wide = false, immersive = false }: ShellProps)
   useEffect(() => {
     if (loading) return;
     if (!user) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    // Signed in with a code but the name step was never finished.
+    else if (!user.name) router.replace('/login');
   }, [loading, user, router, pathname]);
 
-  if (loading || !user) {
+  if (loading || !user || !user.name) {
     return (
       <div className="flex min-h-dvh items-center justify-center text-muted">
         <Spinner /> <span className="ml-3">{t('common.loading')}</span>
@@ -56,20 +57,6 @@ export function Shell({ children, wide = false, immersive = false }: ShellProps)
     signOut();
     router.push('/');
   };
-
-  if (user.needsVerification) {
-    // Accounts created before email confirmation existed get asked once.
-    return (
-      <div className="flex min-h-dvh items-center justify-center p-4" role="dialog" aria-modal="true">
-        <div className="card w-full max-w-md p-6 sm:p-8">
-          <div className="mb-6 flex justify-center"><Logo /></div>
-          <p className="mb-4 rounded-2xl border border-gold/30 bg-gold/10 px-4 py-3 text-center text-sm text-gold-soft">{t('shell.confirmEmail')}</p>
-          <VerifyCode email={user.email} sendOnOpen onVerified={async (token) => { await signIn(token); }} />
-          <button className="mt-4 w-full text-center text-xs text-faint hover:text-muted" onClick={leave}>{t('nav.signOut')}</button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-dvh">

@@ -21,7 +21,7 @@ const PROMISES: MessageKey[] = ['landing.promise1', 'landing.promise2', 'landing
 export default function Landing() {
   const { user } = useAuth();
   const t = useT();
-  const start = user ? '/dashboard' : '/register';
+  const start = user ? '/dashboard' : '/login';
 
   return (
     <div className="min-h-dvh overflow-x-hidden">
@@ -51,7 +51,7 @@ export default function Landing() {
           <Link href={start} className="btn-primary h-13 px-8 text-base">
             {t('landing.startFree')} <ArrowRight size={18} />
           </Link>
-          <Link href={user ? '/chat' : '/register'} className="btn-ghost h-13 px-8 text-base">
+          <Link href={user ? '/chat' : '/login'} className="btn-ghost h-13 px-8 text-base">
             <MessageCircle size={18} /> {t('landing.talk')}
           </Link>
         </div>
@@ -64,13 +64,13 @@ export default function Landing() {
         <p className="mb-6 px-4 text-center text-muted sm:mb-10">{t('landing.exploreBody')}</p>
         <div className="flex snap-x gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-4">
           {SERVICES.map((s) => (
-            <Link key={s.slug} href={user ? `/services/${s.slug}` : '/register'} className="card w-52 shrink-0 snap-start p-5 transition hover:border-gold/50 sm:w-auto">
+            <Link key={s.slug} href={user ? `/services/${s.slug}` : '/login'} className="card w-52 shrink-0 snap-start p-5 transition hover:border-gold/50 sm:w-auto">
               <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-gold/12 text-gold"><s.icon size={22} /></span>
               <h3 className="font-display text-lg font-semibold text-ink">{t(serviceKey(s, 'title'))}</h3>
               <p className="mt-1 text-sm text-muted">{t(serviceKey(s, 'short'))}</p>
             </Link>
           ))}
-          <Link href={user ? '/chat' : '/register'} className="card flex w-52 shrink-0 snap-start flex-col justify-between border-violet/30 bg-violet/10 p-5 transition hover:border-violet/60 sm:w-auto">
+          <Link href={user ? '/chat' : '/login'} className="card flex w-52 shrink-0 snap-start flex-col justify-between border-violet/30 bg-violet/10 p-5 transition hover:border-violet/60 sm:w-auto">
             <MessageCircle className="mb-4 text-violet" size={26} />
             <div>
               <h3 className="font-display text-lg font-semibold text-ink">{t('landing.unsureTitle')}</h3>

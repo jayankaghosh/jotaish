@@ -156,7 +156,6 @@
   "{sign} (Moon sign)": "{sign} (চন্দ্ররাশি)",
   "{sign} (Sun sign)": "{sign} (সূর্যরাশি)",
   "{vedic} (Vedic) · {western} (Western)": "{vedic} (বৈদিক) · {western} (পাশ্চাত্য)",
-
   "Aries": "মেষ",
   "Taurus": "বৃষ",
   "Gemini": "মিথুন",
@@ -219,5 +218,15 @@
   "Revati": "রেবতী",
   "exalted": "উচ্চস্থ",
   "debilitated": "নীচস্থ",
-  "own sign": "স্বক্ষেত্রী"
+  "own sign": "স্বক্ষেত্রী",
+  "Enter this code in Jotaish to sign in:": "সাইন ইন করতে Jotaish-এ এই কোডটি লিখুন:",
+  "Namaste,": "নমস্তে,",
+  "That code has expired. Tap \"Send a new code\" to get a fresh one.": "এই কোডের মেয়াদ শেষ হয়ে গেছে। নতুন কোড পেতে \"নতুন কোড পাঠান\" ট্যাপ করুন।",
+  "That code is not correct. Please use the latest code we emailed you.": "এই কোডটি সঠিক নয়। আমাদের পাঠানো সবচেয়ে নতুন কোডটি ব্যবহার করুন।",
+  "That code is not correct. Attempts left: {left}.": "এই কোডটি সঠিক নয়। বাকি চেষ্টা: {left}।",
+  "The code works for {minutes} minutes. If you didn't ask to sign in, you can ignore this email; nobody can get in without the code.": "কোডটি {minutes} মিনিট কাজ করবে। আপনি সাইন ইন করতে না চাইলে এই ইমেলটি উপেক্ষা করুন; কোড ছাড়া কেউ ঢুকতে পারবে না।",
+  "We couldn't send the email just now. Please check the address and try again in a minute.": "এই মুহূর্তে ইমেল পাঠানো গেল না। ঠিকানাটি দেখে নিয়ে এক মিনিট পরে আবার চেষ্টা করুন।",
+  "You've asked for a lot of codes. Please try again in {minutes} min, or use the latest code we sent.": "আপনি অনেকগুলো কোড চেয়েছেন। {minutes} মিনিট পরে আবার চেষ্টা করুন, অথবা আমাদের পাঠানো সবচেয়ে নতুন কোডটি ব্যবহার করুন।",
+  "Your sign-in code": "আপনার সাইন-ইন কোড",
+  "{code} is your Jotaish sign-in code": "{code} আপনার Jotaish সাইন-ইন কোড"
 }

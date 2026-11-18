@@ -25,7 +25,9 @@ enum ReadingType {
 model User {
   id                  String           @id @default(cuid())
   email               String           @unique
-  passwordHash        String
+  // Only admins have one, for the console; everyone else signs in with a
+  // code emailed to them.
+  passwordHash        String?
   name                String
   role                Role             @default(USER)
   // en, hi, ml, kn or bn: the website, readings and emails use it.
@@ -38,12 +40,8 @@ model User {
   unlimitedCredits    Boolean          @default(false)
   // Bought or granted credits, used once the free allowance is spent.
   creditBalance       Float            @default(0)
-  // Set once the person enters the code emailed to them.
+  // Set the first time the person signs in with an emailed code.
   emailVerifiedAt     DateTime?
-  verifyCodeHash      String?
-  verifyCodeExpiresAt DateTime?
-  verifyCodeSentAt    DateTime?
-  verifyAttempts      Int              @default(0)
   createdAt           DateTime         @default(now())
   lastSeenAt          DateTime?
   profiles            BirthProfile[]
@@ -225,4 +223,18 @@ model PlaceName {
   name    String
 
   @@id([placeId, name])
+}
+
+// One row per sign-in code emailed. Only a hash of the code is kept; the
+// rows also count how many codes an address has asked for recently.
+model SignInCode {
+  id        String    @id @default(cuid())
+  email     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int       @default(0)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, createdAt])
 }

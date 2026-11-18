@@ -218,5 +218,15 @@
   "exalted": "ഉച്ചം",
   "debilitated": "നീചം",
   "own sign": "സ്വക്ഷേത്രം",
-  "Please write the name in English letters, as numerology counts the letters A to Z.": "സംഖ്യാശാസ്ത്രം A മുതൽ Z വരെയുള്ള അക്ഷരങ്ങളാണ് എണ്ണുന്നത്, അതിനാൽ ദയവായി പേര് ഇംഗ്ലീഷ് അക്ഷരങ്ങളിൽ എഴുതുക."
+  "Please write the name in English letters, as numerology counts the letters A to Z.": "സംഖ്യാശാസ്ത്രം A മുതൽ Z വരെയുള്ള അക്ഷരങ്ങളാണ് എണ്ണുന്നത്, അതിനാൽ ദയവായി പേര് ഇംഗ്ലീഷ് അക്ഷരങ്ങളിൽ എഴുതുക.",
+  "Enter this code in Jotaish to sign in:": "സൈൻ ഇൻ ചെയ്യാൻ ഈ കോഡ് Jotaish-ൽ നൽകുക:",
+  "Namaste,": "നമസ്തേ,",
+  "That code has expired. Tap \"Send a new code\" to get a fresh one.": "ഈ കോഡിന്റെ കാലാവധി കഴിഞ്ഞു. പുതിയ കോഡ് ലഭിക്കാൻ \"പുതിയ കോഡ് അയയ്ക്കുക\" ടാപ്പ് ചെയ്യുക.",
+  "That code is not correct. Please use the latest code we emailed you.": "ഈ കോഡ് ശരിയല്ല. ഞങ്ങൾ അയച്ച ഏറ്റവും പുതിയ കോഡ് ഉപയോഗിക്കുക.",
+  "That code is not correct. Attempts left: {left}.": "ഈ കോഡ് ശരിയല്ല. ബാക്കിയുള്ള ശ്രമങ്ങൾ: {left}.",
+  "The code works for {minutes} minutes. If you didn't ask to sign in, you can ignore this email; nobody can get in without the code.": "ഈ കോഡ് {minutes} മിനിറ്റ് പ്രവർത്തിക്കും. നിങ്ങൾ സൈൻ ഇൻ ചെയ്യാൻ ആവശ്യപ്പെട്ടില്ലെങ്കിൽ ഈ ഇമെയിൽ അവഗണിക്കാം; കോഡ് ഇല്ലാതെ ആർക്കും പ്രവേശിക്കാനാവില്ല.",
+  "We couldn't send the email just now. Please check the address and try again in a minute.": "ഇപ്പോൾ ഇമെയിൽ അയയ്ക്കാൻ കഴിഞ്ഞില്ല. വിലാസം പരിശോധിച്ച് ഒരു മിനിറ്റിന് ശേഷം വീണ്ടും ശ്രമിക്കുക.",
+  "You've asked for a lot of codes. Please try again in {minutes} min, or use the latest code we sent.": "നിങ്ങൾ ധാരാളം കോഡുകൾ ആവശ്യപ്പെട്ടു. {minutes} മിനിറ്റിന് ശേഷം വീണ്ടും ശ്രമിക്കുക, അല്ലെങ്കിൽ ഞങ്ങൾ അയച്ച ഏറ്റവും പുതിയ കോഡ് ഉപയോഗിക്കുക.",
+  "Your sign-in code": "നിങ്ങളുടെ സൈൻ-ഇൻ കോഡ്",
+  "{code} is your Jotaish sign-in code": "{code} ആണ് നിങ്ങളുടെ Jotaish സൈൻ-ഇൻ കോഡ്"
 }

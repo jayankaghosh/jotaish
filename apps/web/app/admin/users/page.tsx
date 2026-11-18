@@ -42,7 +42,7 @@ export default function AdminUsers() {
             <tbody className="divide-y divide-line">
               {data.items.map((u) => (
                 <tr key={u.id} className="hover:bg-raised/50">
-                  <td className="p-4"><Link href={`/admin/users/${u.id}`} className="text-gold-soft hover:underline">{u.name}</Link></td>
+                  <td className="p-4"><Link href={`/admin/users/${u.id}`} className="text-gold-soft hover:underline">{u.name || '(no name yet)'}</Link></td>
                   <td className="p-4 text-muted">{u.email}</td>
                   <td className="p-4 text-muted">{formatDate(u.createdAt)}</td>
                   <td className="p-4 text-muted">{u.lastSeenAt ? formatDate(u.lastSeenAt) : '-'}</td>

@@ -30,8 +30,6 @@ export const typeDefs = /* GraphQL */ `
     # en, hi, ml, kn or bn
     language: String!
     emailVerified: Boolean!
-    # True when this person must enter the emailed code before continuing.
-    needsVerification: Boolean!
     # Credit allowance override. Null when the default applies.
     creditLimit: Int
     unlimitedCredits: Boolean!
@@ -57,10 +55,28 @@ export const typeDefs = /* GraphQL */ `
   }
 
   type AuthPayload {
-    # Null when the email still has to be confirmed.
-    token: String
+    token: String!
     user: User!
-    verificationRequired: Boolean!
+    # True for a new account (or one whose details were never finished):
+    # the app asks for the person's name next.
+    isNew: Boolean!
+  }
+
+  type SignInCodeStatus {
+    email: String!
+    # Seconds until the code stops working, and until another can be sent.
+    expiresIn: Int!
+    resendIn: Int!
+    # Codes this address can still ask for in the current window.
+    codesLeft: Int!
+  }
+
+  type SignInSettings {
+    codeMinutes: Int!
+    resendSeconds: Int!
+    maxCodes: Int!
+    windowMinutes: Int!
+    maxAttempts: Int!
   }
 
   type BirthProfile {
@@ -199,7 +215,6 @@ export const typeDefs = /* GraphQL */ `
     fromName: String!
     fromEmail: String!
     adminEmails: String!
-    requireVerification: Boolean!
     configured: Boolean!
   }
 
@@ -240,6 +255,7 @@ export const typeDefs = /* GraphQL */ `
     creditUsd: Float!
     payment: PaymentSettings!
     mail: MailSettings!
+    signIn: SignInSettings!
     tasks: [AiTaskSetting!]!
     recommendedModels: [RecommendedModel!]!
   }
@@ -303,14 +319,6 @@ export const typeDefs = /* GraphQL */ `
   type TestResult {
     ok: Boolean!
     message: String!
-  }
-
-  input RegisterInput {
-    name: String!
-    email: String!
-    password: String!
-    # en, hi, ml, kn or bn
-    language: String
   }
 
   input ProfileInput {
@@ -384,7 +392,6 @@ export const typeDefs = /* GraphQL */ `
     fromName: String
     fromEmail: String
     adminEmails: String
-    requireVerification: Boolean
   }
 
   input SettingsInput {
@@ -395,6 +402,15 @@ export const typeDefs = /* GraphQL */ `
     limits: LimitSettingsInput
     payment: PaymentSettingsInput
     mail: MailSettingsInput
+    signIn: SignInSettingsInput
+  }
+
+  input SignInSettingsInput {
+    codeMinutes: Int
+    resendSeconds: Int
+    maxCodes: Int
+    windowMinutes: Int
+    maxAttempts: Int
   }
 
   # The Moon today and what it means for the signed-in person. Free.
@@ -455,12 +471,14 @@ export const typeDefs = /* GraphQL */ `
   }
 
   type Mutation {
-    register(input: RegisterInput!): AuthPayload!
+    # Emails a 6-digit sign-in code, or says how long to wait before asking
+    # again. Works the same whether or not an account exists.
+    requestSignInCode(email: String!): SignInCodeStatus!
+    # Checks the code and signs the person in, creating the account the
+    # first time.
+    verifySignInCode(email: String!, code: String!, language: String): AuthPayload!
+    # Console sign-in. Only admins have passwords.
     login(email: String!, password: String!): AuthPayload!
-    # Confirms the 6-digit code and signs the person in.
-    verifyEmail(email: String!, code: String!): AuthPayload!
-    # Emails a new code (at most once a minute). Always returns true.
-    resendVerificationCode(email: String!): Boolean!
     updateMe(name: String, language: String): User!
     changePassword(current: String!, next: String!): Boolean!
     saveProfile(input: ProfileInput!): BirthProfile!
@@ -494,7 +512,6 @@ export const typeDefs = /* GraphQL */ `
     # Emails the chosen users (or everyone who isn't blocked). Sending happens
     # in the background; returns how many emails were queued.
     sendEmailToUsers(userIds: [ID!], everyone: Boolean, subject: String!, body: String!): Int!
-    markEmailVerified(userId: ID!): User!
   }
 
   type Subscription {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Eye, Gauge, IndianRupee, KeyRound, Mail, Plus, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, Eye, Gauge, IndianRupee, KeyRound, Lock, Mail, Plus, Trash2, XCircle } from 'lucide-react';
 import { imageToDataUrl } from '@/lib/image';
 import { AdminShell } from '@/components/AdminShell';
 import { ErrorNote, PageTitle, Spinner, Tip } from '@/components/ui';
@@ -19,6 +19,7 @@ interface Settings {
   creditPeriod: 'day' | 'month' | 'total';
   creditUsd: number;
   mail: MailSettings;
+  signIn: SignInSettings;
   payment: { upiId: string; payeeName: string; qrCode: string | null; packs: { rupees: number; credits: number }[] };
   tasks: TaskSetting[];
   recommendedModels: Recommended[];
@@ -36,12 +37,12 @@ interface MailSettings {
   fromName: string;
   fromEmail: string;
   adminEmails: string;
-  requireVerification: boolean;
   configured: boolean;
 }
+interface SignInSettings { codeMinutes: number; resendSeconds: number; maxCodes: number; windowMinutes: number; maxAttempts: number }
 interface CatalogModel { id: string; name: string; promptPrice: number; completionPrice: number; vision: boolean; tools: boolean }
 
-const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } mail { provider gmailClientId gmailClientSecretSet gmailAddress host port secure username passwordSet fromName fromEmail adminEmails requireVerification configured } tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
+const SETTINGS_FIELDS = `apiKeySet apiKeyPreview apiKeySource temperature creditLimit creditPeriod creditUsd payment { upiId payeeName qrCode packs { rupees credits } } mail { provider gmailClientId gmailClientSecretSet gmailAddress host port secure username passwordSet fromName fromEmail adminEmails configured } signIn { codeMinutes resendSeconds maxCodes windowMinutes maxAttempts } tasks { task label hint needs model } recommendedModels { id label strengths vision tools }`;
 
 export default function AdminSettings() {
   const { refresh } = useAuth();
@@ -100,7 +101,7 @@ export default function AdminSettings() {
 
   return (
     <AdminShell>
-      <PageTitle title="Settings" subtitle="AI models and allowances, selling credits, and email." />
+      <PageTitle title="Settings" subtitle="AI models and allowances, selling credits, email and sign-in." />
 
       <div className="space-y-6">
         <section className="card p-6">
@@ -145,6 +146,7 @@ export default function AdminSettings() {
         <PaymentSettings settings={settings} onSaved={apply} />
 
         <EmailSettings settings={settings} onSaved={apply} />
+        <SignInCodeSettings settings={settings} onSaved={apply} />
 
         <section className="card p-6">
           <h2 className="font-display text-2xl text-ink">Model for each task</h2>
@@ -437,7 +439,6 @@ function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s:
     fromName: m.fromName,
     fromEmail: m.fromEmail,
     adminEmails: m.adminEmails,
-    requireVerification: m.requireVerification,
     gmailClientId: m.gmailClientId,
   });
   const [password, setPassword] = useState('');
@@ -621,13 +622,6 @@ function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s:
         </div>
       </div>
 
-      <label className="mt-5 flex items-start gap-3 text-sm text-ink">
-        <input type="checkbox" className="mt-1 accent-[var(--color-gold)]" checked={form.requireVerification} onChange={(e) => set({ requireVerification: e.target.checked })} />
-        <span>
-          Customers must confirm their email address
-          <span className="block text-xs text-muted">New customers get a 6-digit code and can sign in only after entering it. Existing customers are asked once. Only applies while email is set up; admins are never asked.</span>
-        </span>
-      </label>
 
       <div className="mt-5 flex items-center gap-3">
         <button className="btn-primary" onClick={save} disabled={busy}>{busy ? <Spinner /> : 'Save email settings'}</button>
@@ -648,6 +642,75 @@ function EmailSettings({ settings, onSaved }: { settings: Settings; onSaved: (s:
           </p>
         )}
       </div>
+    </section>
+  );
+}
+
+const SIGN_IN_FIELDS: { key: keyof SignInSettings; label: string; unit: string; hint: string }[] = [
+  { key: 'codeMinutes', label: 'Code works for', unit: 'minutes', hint: 'After this the code expires and a new one is needed.' },
+  { key: 'resendSeconds', label: 'Wait before resending', unit: 'seconds', hint: 'How long the "Send a new code" button stays greyed out.' },
+  { key: 'maxCodes', label: 'Codes per email address', unit: 'codes', hint: 'Including the first one, within the period below.' },
+  { key: 'windowMinutes', label: 'Period for that limit', unit: 'minutes', hint: 'Once the limit is reached, the person waits until the oldest code is this old.' },
+  { key: 'maxAttempts', label: 'Wrong tries per code', unit: 'tries', hint: 'Then the code stops working and a new one is needed.' },
+];
+
+function SignInCodeSettings({ settings, onSaved }: { settings: Settings; onSaved: (s: Settings) => void }) {
+  const [form, setForm] = useState(() => Object.fromEntries(SIGN_IN_FIELDS.map((f) => [f.key, String(settings.signIn[f.key])])) as Record<keyof SignInSettings, string>);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const valid = SIGN_IN_FIELDS.every((f) => /^\d+$/.test(form[f.key].trim()));
+
+  async function save() {
+    setBusy(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const { updateSettings } = await gql<{ updateSettings: Settings }>(`mutation($input: SettingsInput!) { updateSettings(input: $input) { ${SETTINGS_FIELDS} } }`, {
+        input: { signIn: Object.fromEntries(SIGN_IN_FIELDS.map((f) => [f.key, Number(form[f.key])])) },
+      });
+      onSaved(updateSettings);
+      // Values outside the allowed range come back adjusted.
+      setForm(Object.fromEntries(SIGN_IN_FIELDS.map((f) => [f.key, String(updateSettings.signIn[f.key])])) as Record<keyof SignInSettings, string>);
+      setSaved(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card p-6">
+      <div className="mb-1 flex items-center gap-3">
+        <Lock className="text-gold" />
+        <h2 className="font-display text-2xl text-ink">Sign-in codes</h2>
+      </div>
+      <p className="mb-5 text-sm text-muted">
+        Customers sign in with a 6-digit code emailed to them; there are no passwords. New email addresses get an account the
+        first time they enter a code. These limits keep the codes safe and stop anyone flooding an inbox. Admins can still use
+        their password on the console sign-in page.
+      </p>
+      <div className="grid gap-4 md:grid-cols-2">
+        {SIGN_IN_FIELDS.map((f) => (
+          <div key={f.key}>
+            <label className="label" htmlFor={`signin-${f.key}`}>{f.label}</label>
+            <div className="flex items-center gap-2">
+              <input id={`signin-${f.key}`} className="input w-28" inputMode="numeric" value={form[f.key]} onChange={(e) => { setForm({ ...form, [f.key]: e.target.value }); setSaved(false); }} />
+              <span className="text-sm text-muted">{f.unit}</span>
+            </div>
+            <p className="hint">{f.hint}</p>
+          </div>
+        ))}
+      </div>
+      {!settings.mail.configured && (
+        <div className="mt-4"><Tip>Email isn&apos;t set up yet, so customers can&apos;t receive codes. Set it up in the Email section above.</Tip></div>
+      )}
+      <div className="mt-5 flex items-center gap-3">
+        <button className="btn-primary" onClick={save} disabled={busy || !valid}>{busy ? <Spinner /> : 'Save sign-in settings'}</button>
+        {saved && <span className="text-sm text-ok">Saved.</span>}
+      </div>
+      <div className="mt-3"><ErrorNote message={error} /></div>
     </section>
   );
 }
