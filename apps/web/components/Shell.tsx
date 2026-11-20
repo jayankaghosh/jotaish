@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import { BookOpen, Coins, Compass, LogOut, Sparkles, Sun, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { creditsLeft } from '@/lib/credits';
 import { useT, type MessageKey } from '@/lib/i18n';
 import type { Usage } from '@/lib/types';
 import { LanguagePicker } from './LanguagePicker';
@@ -132,13 +133,13 @@ function TabBar({ pathname }: { pathname: string }) {
   );
 }
 
-// What's left, at a glance: the free allowance as a percentage, or bought
-// credits once the allowance is used.
+// What's left, at a glance: free and bought credits together.
 function CreditChip({ usage }: { usage?: Usage | null }) {
   const t = useT();
-  if (!usage || usage.percentLeft === null) return null;
-  const onCredits = usage.percentLeft === 0 && usage.balance > 0;
-  const low = !onCredits && usage.percentLeft <= 15;
+  const left = usage ? creditsLeft(usage) : null;
+  if (!usage || left === null) return null;
+  // Warn once less than 15% of the free allowance is left.
+  const low = left <= (usage.limit ?? 0) * 0.15;
   return (
     <Link
       href="/credits"
@@ -146,7 +147,7 @@ function CreditChip({ usage }: { usage?: Usage | null }) {
       title={t('nav.credits')}
     >
       <Coins size={14} />
-      {onCredits ? formatCredits(usage.balance) : `${usage.percentLeft}%`}
+      {formatCredits(left)}
     </Link>
   );
 }
